@@ -1,5 +1,6 @@
 using GridRunners.Api.Models;
 using Microsoft.AspNetCore.Http;
+using static GridRunners.Api.Models.MazeGame;
 
 namespace GridRunners.Api.Dtos;
 

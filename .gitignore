@@ -17,6 +17,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+appsettings.Development.json
 
 # Visual Studio Code
 .vscode/*

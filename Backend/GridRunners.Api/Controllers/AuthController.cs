@@ -1,3 +1,4 @@
+using GridRunners.Api.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using GridRunners.Api.Models;
 using GridRunners.Api.Services;
@@ -11,7 +12,8 @@ using System.Security.Claims;
 namespace GridRunners.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.Current)]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class AuthController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

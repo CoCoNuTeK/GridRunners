@@ -7,11 +7,13 @@ using GridRunners.Api.Dtos;
 using GridRunners.Api.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
+using GridRunners.Api.Configuration;
 
 namespace GridRunners.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.Current)]
+[Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]  // Require authentication for all endpoints
 [EnableRateLimiting("authenticated")]
 public class UserController : ControllerBase

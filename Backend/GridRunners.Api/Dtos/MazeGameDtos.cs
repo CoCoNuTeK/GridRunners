@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using GridRunners.Api.Models;
+using static GridRunners.Api.Models.MazeGame;
 
 namespace GridRunners.Api.Dtos;
 
