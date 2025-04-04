@@ -1,4 +1,4 @@
-# .NET
+# .NET Backend
 .vs/
 bin/
 obj/
@@ -19,46 +19,44 @@ bld/
 [Ll]ogs/
 appsettings.Development.json
 
-# Visual Studio Code
+# Frontend (React)
+node_modules/
+/.pnp
+.pnp.js
+/build
+/dist
+/coverage
+.next/
+out/
+
+# Environment Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# IDE and Editor Files
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+.idea/
+*.swp
+*.swo
 
-# React / Next.js
-.next/
-out/
-build/
-dist/
-node_modules/
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.pnp
-.pnp.js
-
-# misc
+# System Files
 .DS_Store
 *.pem
+
+# Logs and Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel
-.env*.local
 
-# testing
+# Testing
 /coverage
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# IDE
-.idea/
-*.swp
-*.swo
