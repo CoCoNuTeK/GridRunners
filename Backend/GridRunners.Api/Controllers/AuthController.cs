@@ -49,6 +49,12 @@ public class AuthController : ControllerBase
     {
         try
         {
+            // Validate input
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            {
+                return BadRequest(new { message = "Username and password are required" });
+            }
+
             // Find user by username
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Username == request.Username);
@@ -56,10 +62,17 @@ public class AuthController : ControllerBase
             // If user doesn't exist, create a new one
             if (user == null)
             {
-                user = GridRunners.Api.Models.User.CreateNew(request.Username, request.Password);
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Created new user: {Username}", request.Username);
+                try
+                {
+                    user = GridRunners.Api.Models.User.CreateNew(request.Username, request.Password);
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Created new user: {Username}", request.Username);
+                }
+                catch (ArgumentException ex)
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
             }
             // If user exists, verify password
             else if (!user.VerifyPassword(request.Password))

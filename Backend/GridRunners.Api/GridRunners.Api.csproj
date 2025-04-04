@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="5.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="5.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.3" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
     <PackageReference Include="System.Threading.RateLimiting" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.3">

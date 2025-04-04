@@ -10,6 +10,7 @@ public static class ApiConfig
     {
         services.AddControllers();
         services.AddSignalR();
+        services.AddCors();
 
         // Configure API Versioning
         services.AddApiVersioning(options =>

@@ -22,9 +22,10 @@ public class AuthService
     {
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),    // User ID
+            new Claim(ClaimTypes.Name, user.Username), // Username
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // Token ID
+            new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // Issued at
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authOptions.Secret));

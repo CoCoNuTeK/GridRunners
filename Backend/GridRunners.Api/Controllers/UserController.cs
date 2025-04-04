@@ -58,14 +58,6 @@ public class UserController : ControllerBase
             return BadRequest(new { message = "Display name cannot be longer than 50 characters" });
 
         user!.UpdateDisplayName(request.DisplayName);
-        
-        // Check if profile image needs SAS refresh
-        if (user.NeedsProfileImageSasRefresh() && !string.IsNullOrEmpty(user.ProfileImageUrl))
-        {
-            var (sasToken, expiration) = await _blobStorage.GenerateSasTokenAsync(user.ProfileImageUrl);
-            user.UpdateProfileImage(user.ProfileImageUrl, sasToken, expiration);
-        }
-        
         await _context.SaveChangesAsync();
 
         return UserProfileResponse.FromUser(user);
@@ -139,10 +131,10 @@ public class UserController : ControllerBase
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await _context.Users.FindAsync(userId);
 
-        // Check if profile image needs SAS refresh
-        if (user!.NeedsProfileImageSasRefresh() && !string.IsNullOrEmpty(user.ProfileImageUrl))
+        // Get valid SAS token if needed
+        if (!string.IsNullOrEmpty(user!.ProfileImageUrl))
         {
-            var (sasToken, expiration) = await _blobStorage.GenerateSasTokenAsync(user.ProfileImageUrl);
+            var (sasToken, expiration) = await _blobStorage.GetValidSasTokenAsync(user.ProfileImageUrl, user.ProfileImageSasToken);
             user.UpdateProfileImage(user.ProfileImageUrl, sasToken, expiration);
             await _context.SaveChangesAsync();
         }

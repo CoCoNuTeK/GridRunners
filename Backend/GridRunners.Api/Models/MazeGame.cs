@@ -3,6 +3,9 @@ using System.Linq;
 using System.Collections.Generic;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Dynamic;
+using Microsoft.CSharp.RuntimeBinder;
+using System.Text.Json;
 
 namespace GridRunners.Api.Models;
 
@@ -74,7 +77,7 @@ public class MazeGame
     
     // Player positions and colors - not stored in DB
     [NotMapped]
-    public Dictionary<int, (int X, int Y)> PlayerPositions { get; private set; } = new();
+    public Dictionary<int, dynamic> PlayerPositions { get; private set; } = new();
     
     [NotMapped]
     public Dictionary<int, string> PlayerColors { get; private set; } = new();
@@ -124,12 +127,14 @@ public class MazeGame
     {
         if (State == GameState.Lobby)
         {
+            Console.WriteLine("Starting new game - generating maze and initializing state");
             GenerateMaze();
             AssignPlayerColors();
             PlacePlayersAtStart();
             InitPlayerConnections();
             StartedAt = DateTime.UtcNow;
             State = GameState.InGame;
+            Console.WriteLine($"Game initialized with {Players.Count} players and {BotCount} bots");
         }
     }
 
@@ -184,6 +189,7 @@ public class MazeGame
 
     private void GenerateMaze()
     {
+        Console.WriteLine("Starting maze generation");
         Grid = new CellType[Width, Height];
         var random = new Random();
 
@@ -192,16 +198,18 @@ public class MazeGame
         {
             for (int y = 0; y < Height; y++)
             {
-                Grid[x, y] = CellType.Wall;
+                Grid[y, x] = CellType.Wall;
             }
         }
+        Console.WriteLine("Grid initialized with walls");
 
         // Create paths using a simple random walk
         var stack = new Stack<(int X, int Y)>();
         var start = (X: 1, Y: 1);
         stack.Push(start);
-        Grid[start.X, start.Y] = CellType.Free;
+        Grid[start.Y, start.X] = CellType.Free;
 
+        int pathCells = 1; // Count starting with the first free cell
         while (stack.Count > 0)
         {
             var current = stack.Peek();
@@ -215,7 +223,7 @@ public class MazeGame
                 var newY = current.Y + dy;
                 
                 if (newX > 0 && newX < Width - 1 && newY > 0 && newY < Height - 1 
-                    && Grid[newX, newY] == CellType.Wall)
+                    && Grid[newY, newX] == CellType.Wall)
                 {
                     neighbors.Add((newX, newY));
                 }
@@ -225,9 +233,10 @@ public class MazeGame
             {
                 var next = neighbors[random.Next(neighbors.Count)];
                 // Create path by setting both the next cell and the cell between current and next
-                Grid[next.X, next.Y] = CellType.Free;
-                Grid[current.X + (next.X - current.X) / 2, current.Y + (next.Y - current.Y) / 2] = CellType.Free;
+                Grid[next.Y, next.X] = CellType.Free;
+                Grid[current.Y + (next.Y - current.Y) / 2, current.X + (next.X - current.X) / 2] = CellType.Free;
                 stack.Push(next);
+                pathCells += 2; // Two more free cells added
             }
             else
             {
@@ -238,13 +247,37 @@ public class MazeGame
         // Set finish point in middle area
         var midX = Width / 2 + random.Next(-3, 4);
         var midY = Height / 2 + random.Next(-3, 4);
-        Grid[midX, midY] = CellType.Finish;
+        Grid[midY, midX] = CellType.Finish;
+        
+        Console.WriteLine($"Maze generation complete: {pathCells} path cells + 1 finish cell, finish at ({midX}, {midY})");
+        
+        // Log wall/free cell counts as verification
+        int wallCount = 0;
+        int freeCount = 0;
+        int finishCount = 0;
+        
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                switch (Grid[y, x])
+                {
+                    case CellType.Wall: wallCount++; break;
+                    case CellType.Free: freeCount++; break;
+                    case CellType.Finish: finishCount++; break;
+                }
+            }
+        }
+        
+        Console.WriteLine($"Grid cells: {Width}x{Height} = {Width*Height} total, {wallCount} walls, {freeCount} free, {finishCount} finish");
     }
 
     private void PlacePlayersAtStart()
     {
-        PlayerPositions.Clear();
-        var corners = new List<(int X, int Y)>
+        if (Grid == null) return;
+
+        // Define the four corners of the maze (excluding walls)
+        var corners = new[]
         {
             (1, 1),                    // Top-left
             (Width - 2, 1),            // Top-right
@@ -254,65 +287,97 @@ public class MazeGame
 
         // Place real players at opposing corners
         var playerList = Players.OrderBy(p => p.Id).ToList();
-        for (int i = 0; i < playerList.Count; i++)
+        for (int i = 0; i < playerList.Count && i < corners.Length; i++)
         {
-            PlayerPositions[playerList[i].Id] = corners[i];
-            Grid[corners[i].X, corners[i].Y] = CellType.Free; // Ensure corner is walkable
+            var player = playerList[i];
+            if (player != null)
+            {
+                var (x, y) = corners[i];
+                PlayerPositions[player.Id] = new { X = x, Y = y };
+                Grid[y, x] = CellType.Free; // Ensure corner is walkable
+            }
         }
 
         // Place bots at remaining corners
         for (int i = 0; i < BotCount; i++)
         {
             var cornerIndex = playerList.Count + i;
-            if (cornerIndex < corners.Count)
+            if (cornerIndex < corners.Length)
             {
-                PlayerPositions[1000 + i] = corners[cornerIndex];
-                Grid[corners[cornerIndex].X, corners[cornerIndex].Y] = CellType.Free;
+                var (x, y) = corners[cornerIndex];
+                PlayerPositions[1000 + i] = new { X = x, Y = y };
+                Grid[y, x] = CellType.Free;
             }
         }
     }
 
-    public bool MovePlayer(int playerId, int newX, int newY)
+    public bool MovePlayer(int playerId, int newX, int newY, int currentX, int currentY)
     {
-        if (State != GameState.InGame || Grid == null || !PlayerPositions.ContainsKey(playerId))
-            return false;
-
-        var currentPos = PlayerPositions[playerId];
-
-        // Don't allow moving to current position
-        if (newX == currentPos.X && newY == currentPos.Y)
-            return false;
-        
-        // Validate move is only one square (up, down, left, right)
-        var dx = Math.Abs(newX - currentPos.X);
-        var dy = Math.Abs(newY - currentPos.Y);
-        if (dx + dy != 1) // Ensures only one square movement
-            return false;
-
-        // Validate move is within bounds and Grid is not null
-        if (newX < 0 || newX >= Width || newY < 0 || newY >= Height || Grid == null)
-            return false;
-
-        // Check if target position is a wall
-        if (Grid[newX, newY] == CellType.Wall)
-            return false;
-
-        // Check if another player is already at the target position
-        var targetPos = (X: newX, Y: newY);
-        if (PlayerPositions.Values.Any(pos => pos == targetPos))
-            return false;
-
-        // Update position
-        PlayerPositions[playerId] = (newX, newY);
-
-        // Check if player reached finish and Grid is not null
-        if (Grid != null && Grid[newX, newY] == CellType.Finish)
+        if (State != GameState.InGame || Grid == null)
         {
-            EndGame(playerId);
-            return true;
+            Console.WriteLine($"Move validation failed - Game state: {State}, Grid null: {Grid == null}");
+            return false;
         }
 
-        return true;
+        // Don't allow moving to current position
+        if (newX == currentX && newY == currentY)
+        {
+            Console.WriteLine("Move rejected - Attempting to move to current position");
+            return false;
+        }
+        
+        // Validate move is only one square (up, down, left, right)
+        var dx = Math.Abs(newX - currentX);
+        var dy = Math.Abs(newY - currentY);
+        if (dx + dy != 1) // Ensures only one square movement
+        {
+            Console.WriteLine($"Move rejected - Invalid distance: dx={dx}, dy={dy}");
+            return false;
+        }
+
+        // Validate move is within bounds
+        if (newX < 0 || newX >= Width || newY < 0 || newY >= Height)
+        {
+            Console.WriteLine($"Move rejected - Out of bounds: x={newX}, y={newY}, width={Width}, height={Height}");
+            return false;
+        }
+
+        // Check if target position is a wall
+        var cellType = Grid[newY, newX];
+        if (cellType == CellType.Wall)
+        {
+            Console.WriteLine($"Move rejected - Target position is a wall at ({newX}, {newY})");
+            return false;
+        }
+
+        // Check if another player is already at the target position
+        if (PlayerPositions.Values.Any(pos => (int)pos.X == newX && (int)pos.Y == newY))
+        {
+            Console.WriteLine($"Move rejected - Position ({newX}, {newY}) is occupied by another player");
+            return false;
+        }
+
+        try
+        {
+            // Update position
+            PlayerPositions[playerId] = new { X = newX, Y = newY };
+            Console.WriteLine($"Move successful - Player {playerId} moved to ({newX}, {newY})");
+
+            // Check if player reached finish
+            if (Grid != null && Grid[newY, newX] == CellType.Finish)
+            {
+                Console.WriteLine($"Player {playerId} reached the finish line!");
+                EndGame(playerId);
+                return true;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating player position: {ex.Message}");
+            return false;
+        }
     }
 
     public void EndGame(int winnerId)
@@ -328,4 +393,124 @@ public class MazeGame
     // Helper method to check if lobby should be deleted
     public bool ShouldDeleteLobby() => 
         State == GameState.Lobby && Players.Count == 0;
+
+    // Helper methods to set state from client
+    public void SetGridFromClient(int[][] clientGrid)
+    {
+        if (clientGrid == null || clientGrid.Length == 0) return;
+        
+        // Initialize the Grid if it's null
+        if (Grid == null)
+        {
+            Grid = new CellType[Height, Width];
+        }
+        
+        // Log grid dimensions
+        Console.WriteLine($"Setting grid from client data: Length={clientGrid.Length}, NestedLength={clientGrid[0].Length}");
+        
+        // Count cell types before update
+        int wallsBefore = 0, freeBefore = 0, finishBefore = 0;
+        if (Grid != null)
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                for (int x = 0; x < Width; x++)
+                {
+                    switch (Grid[y, x])
+                    {
+                        case CellType.Wall: wallsBefore++; break;
+                        case CellType.Free: freeBefore++; break;
+                        case CellType.Finish: finishBefore++; break;
+                    }
+                }
+            }
+        }
+        
+        // Convert the jagged array from client to 2D array for server
+        for (int y = 0; y < clientGrid.Length && y < Height; y++)
+        {
+            for (int x = 0; x < clientGrid[y].Length && x < Width; x++)
+            {
+                Grid[y, x] = (CellType)clientGrid[y][x];
+            }
+        }
+        
+        // Count cell types after update
+        int wallsAfter = 0, freeAfter = 0, finishAfter = 0;
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                switch (Grid[y, x])
+                {
+                    case CellType.Wall: wallsAfter++; break;
+                    case CellType.Free: freeAfter++; break;
+                    case CellType.Finish: finishAfter++; break;
+                }
+            }
+        }
+        
+        Console.WriteLine($"Grid updated from client - Before: {wallsBefore} walls, {freeBefore} free, {finishBefore} finish");
+        Console.WriteLine($"Grid updated from client - After: {wallsAfter} walls, {freeAfter} free, {finishAfter} finish");
+        
+        // Check for significant changes in cell counts as an anomaly indicator
+        if (Math.Abs(wallsBefore - wallsAfter) > 10 || Math.Abs(freeBefore - freeAfter) > 10)
+        {
+            Console.WriteLine("WARNING: Significant change in grid cell counts detected - potential grid mismatch");
+        }
+    }
+    
+    public void SetPlayerPositionsFromClient(Dictionary<string, dynamic> clientPositions)
+    {
+        if (clientPositions == null) return;
+        
+        // Clear the existing positions and repopulate
+        PlayerPositions.Clear();
+        
+        foreach (var kvp in clientPositions)
+        {
+            if (int.TryParse(kvp.Key, out int playerId))
+            {
+                try 
+                {
+                    // Handle different types of position data
+                    var position = kvp.Value;
+                    
+                    // Handle JsonElement case (most common when coming from JSON)
+                    if (position is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("x", out var xElement) && 
+                            jsonElement.TryGetProperty("y", out var yElement))
+                        {
+                            if (xElement.TryGetInt32(out int x) && yElement.TryGetInt32(out int y))
+                            {
+                                PlayerPositions[playerId] = new { X = x, Y = y };
+                            }
+                        }
+                    }
+                    // Handle dynamic object case
+                    else if (position != null)
+                    {
+                        // Try to access x and y as dynamic properties
+                        try
+                        {
+                            int x = Convert.ToInt32(position.x);
+                            int y = Convert.ToInt32(position.y);
+                            PlayerPositions[playerId] = new { X = x, Y = y };
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"Could not extract x,y from position object for player {playerId}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing position for player {playerId}: {ex.Message}");
+                }
+            }
+        }
+        
+        Console.WriteLine($"Player positions have been set from client data: {PlayerPositions.Count} players");
+    }
 } 
