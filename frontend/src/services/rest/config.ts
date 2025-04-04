@@ -1,0 +1,1 @@
+export const API_BASE_URL = process.env.BACKEND_API_URL || 'https://localhost:7119/api/v1'; 
