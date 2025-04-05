@@ -24,7 +24,8 @@ public record GameResponse(
 public record PlayerInfo(
     int Id,
     string Username,
-    string? DisplayName
+    string? DisplayName,
+    string? ProfileImageUrl
 );
 
 public record GameListResponse(
@@ -46,7 +47,8 @@ public static class GameDtoExtensions
             Players: game.Players.Select(p => new PlayerInfo(
                 Id: p.Id,
                 Username: p.Username,
-                DisplayName: p.DisplayName
+                DisplayName: p.DisplayName,
+                ProfileImageUrl: p.GetProfileImageUrlWithSas()
             )).ToList()
         );
     }

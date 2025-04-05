@@ -39,7 +39,7 @@ const GameLobbyPage: React.FC = () => {
                                 players: [...prevGame.players, { 
                                     id: data.playerId, 
                                     displayName: data.displayName,
-                                    profileImage: data.profileImageUrl
+                                    profileImageUrl: data.profileImageUrl
                                 }]
                             };
                         });
@@ -179,8 +179,8 @@ const GameLobbyPage: React.FC = () => {
                             {game.players.map(player => (
                                 <div key={player.id} className="player-card">
                                     <div className="player-avatar">
-                                        {player.profileImage ? (
-                                            <img src={player.profileImage} alt={player.displayName} />
+                                        {player.profileImageUrl ? (
+                                            <img src={player.profileImageUrl} alt={player.displayName} />
                                         ) : (
                                             <div className="default-avatar">
                                                 {player.displayName[0].toUpperCase()}

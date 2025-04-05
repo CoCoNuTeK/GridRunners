@@ -30,7 +30,7 @@ export const GameLobbyPage: React.FC = () => {
                     setPlayers(prev => [...prev, {
                         id: data.playerId,
                         displayName: data.displayName,
-                        profileImage: data.profileImageUrl
+                        profileImageUrl: data.profileImageUrl
                     }]);
                 });
 
@@ -92,8 +92,8 @@ export const GameLobbyPage: React.FC = () => {
                 <ul>
                     {players.map(player => (
                         <li key={player.id}>
-                            {player.profileImage && (
-                                <img src={player.profileImage} alt={player.displayName} />
+                            {player.profileImageUrl && (
+                                <img src={player.profileImageUrl} alt={player.displayName} />
                             )}
                             <span>{player.displayName}</span>
                         </li>
