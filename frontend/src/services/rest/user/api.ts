@@ -13,8 +13,21 @@ class UserApi {
     }
 
     async updateProfileImage(request: UpdateProfileImageRequest): Promise<UserProfileResponse> {
-        const response = await axiosInstance.put<UserProfileResponse>('/User/profile-image', request);
-        return response.data;
+        try {
+            const formData = new FormData();
+            formData.append('imageFile', request.imageFile);
+            
+            // Only override the default Content-Type when sending multipart/form-data
+            const response = await axiosInstance.post<UserProfileResponse>('/User/profile-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            // Let the calling component handle the error
+            throw error;
+        }
     }
 }
 

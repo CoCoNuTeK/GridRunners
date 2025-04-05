@@ -71,31 +71,57 @@ public class BlobStorageService
             var blobName = new Uri(blobPath).LocalPath.TrimStart('/').Split('/', 2)[1];
             var blobClient = containerClient.GetBlobClient(blobName);
 
+            // First, verify if the blob actually exists
+            if (!await blobClient.ExistsAsync())
+            {
+                _logger.LogWarning("Blob does not exist at {BlobPath}", blobPath);
+                return (string.Empty, DateTime.UtcNow);
+            }
+
             // If we have a current token, try to use it first
             if (!string.IsNullOrEmpty(currentSasToken))
             {
                 try
                 {
+                    // Check if the SAS token is about to expire (within 1 hour)
+                    // If it's not about to expire, we can keep using it
+                    // This avoids unnecessary token validation for tokens we know are still valid
+                    var tokenParts = currentSasToken.Split('&').ToDictionary(
+                        part => part.Split('=')[0],
+                        part => part.Contains('=') ? part.Split('=')[1] : string.Empty);
+                    
+                    if (tokenParts.TryGetValue("se", out var expiryValue))
+                    {
+                        var expiry = DateTime.Parse(Uri.UnescapeDataString(expiryValue));
+                        if (expiry > DateTime.UtcNow.AddHours(1))
+                        {
+                            // Token is still valid and not about to expire
+                            return (currentSasToken, expiry);
+                        }
+                    }
+
+                    // If token is about to expire, validate it
                     var sasUri = new Uri($"{blobClient.Uri}?{currentSasToken}");
                     var sasBlobClient = new BlobClient(sasUri, null);
                     await sasBlobClient.GetPropertiesAsync();
                     
-                    // If we get here, the token is still valid
-                    return (currentSasToken, DateTime.UtcNow.AddHours(24)); // Return current token with estimated expiration
+                    // If we get here, the token is still valid but we'll generate a new one
+                    // since it's about to expire
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Current SAS token validation failed, generating new token for {ImageUrl}", imageUrl);
+                    // Continue to generate a new token
                 }
             }
 
-            // Generate new token if current one is invalid or not provided
+            // Generate new token if current one is invalid, about to expire, or not provided
             return await GenerateSasTokenInternalAsync(blobClient);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting valid SAS token for {ImageUrl}", imageUrl);
-            throw;
+            return (string.Empty, DateTime.UtcNow); // Return empty token rather than throwing
         }
     }
 

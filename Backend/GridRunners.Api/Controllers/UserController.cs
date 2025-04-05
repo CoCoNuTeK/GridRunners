@@ -92,6 +92,14 @@ public class UserController : ControllerBase
         if (request.ImageFile.Length > 10 * 1024 * 1024)  // 10 MB
             return BadRequest(new { message = "File size exceeds 10 MB limit" });
 
+        // Validate file extension before attempting upload
+        var extension = Path.GetExtension(request.ImageFile.FileName).ToLowerInvariant();
+        if (extension != ".jpg" && extension != ".jpeg" && extension != ".png")
+        {
+            return StatusCode(StatusCodes.Status415UnsupportedMediaType, 
+                new { message = "Only .jpg, .jpeg and .png files are allowed" });
+        }
+
         try
         {
             // Delete old image if exists
@@ -109,9 +117,27 @@ public class UserController : ControllerBase
 
             return UserProfileResponse.FromUser(user);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return StatusCode(StatusCodes.Status415UnsupportedMediaType, new { message = ex.Message });
+            _logger.LogError(ex, "Error processing profile image for user {UserId}", userId);
+            
+            // Ensure the token is refreshed if there was an error
+            if (!string.IsNullOrEmpty(user!.ProfileImageUrl))
+            {
+                try {
+                    var (sasToken, expiration) = await _blobStorage.GetValidSasTokenAsync(user.ProfileImageUrl, user.ProfileImageSasToken);
+                    user.UpdateProfileImage(user.ProfileImageUrl, sasToken, expiration);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception tokenEx) {
+                    _logger.LogError(tokenEx, "Failed to refresh SAS token during error recovery for user {UserId}", userId);
+                }
+            }
+
+            if (ex is InvalidOperationException)
+                return StatusCode(StatusCodes.Status415UnsupportedMediaType, new { message = ex.Message });
+                
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Failed to update profile image" });
         }
     }
 
