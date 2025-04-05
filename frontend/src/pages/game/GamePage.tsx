@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signalRService } from '../../services/websocket/signalR';
 import { GameState, CellType } from '../../services/websocket/types';
 import { getUserIdFromToken } from '../../services/auth/jwt';
-import { getPlayerColorCSS } from '../../utils/colors';
 import './GamePage.scss';
 
 const GamePage: React.FC = () => {
@@ -31,6 +30,9 @@ const GamePage: React.FC = () => {
 
     // Set up event handlers and initial game state on mount
     React.useEffect(() => {
+        // Prevent scrolling while in game
+        document.body.style.overflow = 'hidden';
+        
         // Set initial game state from location
         setGame(location.state.game);
         setLoading(false);
@@ -199,8 +201,30 @@ const GamePage: React.FC = () => {
             signalRService.off('GameOver');
             signalRService.off('GameError');
             window.removeEventListener('keydown', handleKeyPress);
+            // Restore scrolling when component unmounts
+            document.body.style.overflow = '';
         };
     }, [location.state.game, playerId]);
+
+    const getPlayerColorClass = (colorHex: string | undefined, index: number): string => {
+        // If no color provided or players have the same color, assign based on player index
+        if (!colorHex || !game || 
+            (game.players && game.players.filter(p => game.playerColors[p.id] === colorHex).length > 1)) {
+            // Assign colors sequentially if server provided duplicates
+            const colors = ['red', 'blue', 'green', 'purple'];
+            return colors[index % colors.length];
+        }
+        
+        // Otherwise use the server-provided color
+        if (colorHex.includes('#FF3366') || colorHex.includes('#ff3366')) return 'red';
+        if (colorHex.includes('#00FFB2') || colorHex.includes('#00ffb2')) return 'blue';
+        if (colorHex.includes('#00E5FF') || colorHex.includes('#00e5ff')) return 'green';
+        if (colorHex.includes('#B366FF') || colorHex.includes('#b366ff')) return 'purple';
+        
+        // Fallback to index-based assignment
+        const colors = ['red', 'blue', 'green', 'purple'];
+        return colors[index % colors.length];
+    };
 
     const getCellClass = (cell: number, x: number, y: number): string => {
         // Start with base cell class
@@ -222,20 +246,21 @@ const GamePage: React.FC = () => {
         }
 
         // Check if there's a player at this position
-        const player = Object.entries(game?.playerPositions || {})
+        const playerEntry = Object.entries(game?.playerPositions || {})
             .find(([_, pos]) => pos.x === x && pos.y === y);
         
-        if (player) {
-            const playerId = parseInt(player[0]);
-            const playerColor = game?.playerColors[playerId];
+        if (playerEntry) {
+            const playerId = parseInt(playerEntry[0]);
+            const playerIndex = game?.players.findIndex(p => p.id === playerId) || 0;
             const isDisconnected = disconnectedPlayers.has(playerId);
             
             // Add player-specific classes
             classes.push('player');
-            if (playerColor) {
-                const colorCSS = getPlayerColorCSS(playerColor);
-                classes.push(`player-${colorCSS}`);
-            }
+            
+            // Use the improved color class function
+            const colorClass = getPlayerColorClass(game?.playerColors[playerId], playerIndex);
+            classes.push(`player-${colorClass}`);
+            
             if (isDisconnected) {
                 classes.push('disconnected');
             }
@@ -264,17 +289,35 @@ const GamePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="game-board">
-                {game.grid.map((row, y) => (
-                    <div key={y} className="row">
-                        {row.map((cell, x) => (
-                            <div
-                                key={`${x}-${y}`}
-                                className={getCellClass(cell, x, y)}
-                            />
-                        ))}
-                    </div>
-                ))}
+            <div className="game-content">
+                <div className="player-info-bar">
+                    {game.players.map((player, index) => {
+                        const isDisconnected = disconnectedPlayers.has(player.id);
+                        const colorClass = getPlayerColorClass(game.playerColors[player.id], index);
+                        const isCurrentPlayer = player.id === playerId;
+                        return (
+                            <div key={player.id} className={`player-info ${isCurrentPlayer ? 'current-player' : ''}`}>
+                                <div className={`player-color ${colorClass} ${isDisconnected ? 'disconnected' : ''}`}></div>
+                                <div className={`player-name ${isDisconnected ? 'disconnected' : ''}`}>
+                                    {isCurrentPlayer ? 'YOU' : player.displayName}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="game-board">
+                    {game.grid.map((row, y) => (
+                        <div key={y} className="row">
+                            {row.map((cell, x) => (
+                                <div
+                                    key={`${x}-${y}`}
+                                    className={getCellClass(cell, x, y)}
+                                />
+                            ))}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {showWinnerModal && winner && (

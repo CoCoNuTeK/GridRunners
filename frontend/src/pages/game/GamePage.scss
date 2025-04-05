@@ -1,11 +1,18 @@
 @use '../../styles/theme.scss' as *;
 
 .game-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     padding: 2rem;
-    min-height: 100vh;
     background: var(--background);
     color: var(--text);
     font-family: var(--font-display);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .game-header {
@@ -21,6 +28,87 @@
         background-clip: text;
         -webkit-text-fill-color: transparent;
         text-shadow: var(--shadow-neon);
+    }
+}
+
+.game-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-info-bar {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    
+    .player-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        transition: all 0.2s ease;
+        
+        &.current-player {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            
+            .player-name {
+                font-weight: bold;
+                color: #fff;
+                letter-spacing: 1px;
+            }
+        }
+        
+        .player-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            
+            &.red {
+                background: var(--primary);
+                box-shadow: 0 0 5px var(--primary);
+            }
+            
+            &.blue {
+                background: var(--secondary);
+                box-shadow: 0 0 5px var(--secondary);
+            }
+            
+            &.green {
+                background: #00FFB2;
+                box-shadow: 0 0 5px #00FFB2;
+            }
+            
+            &.purple {
+                background: #B366FF;
+                box-shadow: 0 0 5px #B366FF;
+            }
+            
+            &.disconnected {
+                opacity: 0.5;
+            }
+        }
+        
+        .player-name {
+            font-family: var(--font-pixel);
+            font-size: 0.8rem;
+            color: var(--text);
+            
+            &.disconnected {
+                opacity: 0.5;
+                text-decoration: line-through;
+            }
+        }
     }
 }
 
@@ -43,14 +131,14 @@
     border-radius: 4px;
     transition: all 0.2s ease;
     
-    &.empty {
-        background: var(--surface);
+    &.empty, &.free {
+        background: #3a3a3a;
         box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
     }
     
     &.wall {
-        background: var(--surface);
-        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        background: #1a1a1a;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
     }
     
     &.finish {
