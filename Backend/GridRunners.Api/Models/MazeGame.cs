@@ -113,7 +113,7 @@ public class MazeGame
     // Game state management methods
     public void StartGame()
     {
-        if (State == GameState.Lobby)
+        if (State == GameState.Lobby && Players.Count >= 2)
         {
             Console.WriteLine("Starting new game - generating maze and initializing state");
             GenerateMaze();
@@ -133,19 +133,6 @@ public class MazeGame
         {
             PlayerConnected[player.Id] = true;
         }
-    }
-
-    public void SetPlayerConnection(int playerId, bool isConnected)
-    {
-        if (PlayerConnected.ContainsKey(playerId))
-        {
-            PlayerConnected[playerId] = isConnected;
-        }
-    }
-
-    public bool AreAllPlayersDisconnected()
-    {
-        return PlayerConnected.All(p => !p.Value);
     }
 
     private void AssignPlayerColors()

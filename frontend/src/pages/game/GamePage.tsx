@@ -82,30 +82,17 @@ const GamePage: React.FC = () => {
             });
         };
 
-        const handlePlayerReconnected = (data: { playerId: number; connectedPlayers: Record<number, boolean> }) => {
-            const newDisconnectedPlayers = new Set<number>();
-            Object.entries(data.connectedPlayers).forEach(([playerId, isConnected]) => {
-                if (!isConnected) {
-                    newDisconnectedPlayers.add(parseInt(playerId));
-                }
-            });
-            setDisconnectedPlayers(newDisconnectedPlayers);
-
-            setGame(prevGame => {
-                if (!prevGame) return prevGame;
-                return {
-                    ...prevGame,
-                    playerConnected: data.connectedPlayers
-                };
-            });
-        };
-
         const handleGameOver = (data: { winnerId: number; finalPositions: Record<number, { x: number; y: number }> }) => {
             const winner = gameRef.current?.players.find(p => p.id === data.winnerId);
+            
+            // Set winner first to block movement attempts
             setWinner({
                 id: data.winnerId,
                 name: winner?.displayName || 'Unknown'
             });
+
+            signalRService.stop().catch(() => {});
+            
             setShowWinnerModal(true);
         };
 
@@ -118,8 +105,11 @@ const GamePage: React.FC = () => {
             // Ignore key repeats
             if (e.repeat) return;
             
-            // Exit if game not loaded, user ID not set, or movement is blocked
+            // Exit if game not loaded, user ID not set, movement is blocked
             if (!gameRef.current || !playerId || !currentPositionRef.current) return;
+            
+            // Prevent movement if winner is set
+            if (winner) return;
             
             // Block rapid movement - wait for server confirmation
             if (movementBlockedRef.current) return;
@@ -179,7 +169,8 @@ const GamePage: React.FC = () => {
                 gameRef.current.playerPositions
             )
                 .catch(error => {
-                    console.error('[GamePage] Failed to move player:', error);
+                    // Only log critical errors
+                    console.error('[GamePage] Failed to move player - Connection error');
                     movementBlockedRef.current = false;
                 });
         };
@@ -187,7 +178,6 @@ const GamePage: React.FC = () => {
         // Set up event handlers
         signalRService.on('PlayerMoved', handlePlayerMoved);
         signalRService.on('PlayerDisconnected', handlePlayerDisconnected);
-        signalRService.on('PlayerReconnected', handlePlayerReconnected);
         signalRService.on('GameOver', handleGameOver);
         signalRService.on('GameError', handleGameError);
         
@@ -201,6 +191,11 @@ const GamePage: React.FC = () => {
             signalRService.off('GameOver');
             signalRService.off('GameError');
             window.removeEventListener('keydown', handleKeyPress);
+            
+            // Reset all refs
+            movementBlockedRef.current = false;
+            currentPositionRef.current = null;
+            
             // Restore scrolling when component unmounts
             document.body.style.overflow = '';
         };

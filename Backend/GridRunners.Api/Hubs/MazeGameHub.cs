@@ -22,59 +22,25 @@ public class MazeGameHub : Hub
     {
         var userId = int.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
         
-        // Find any game the user is in (either lobby or in-game)
+        // Find any ACTIVE game the user is in (Lobby or InGame only, not Finished)
         var game = await _context.Games
             .Include(g => g.Players)
+            .Where(g => g.State != GameState.Finished) // Exclude finished games
             .FirstOrDefaultAsync(g => g.Players.Any(p => p.Id == userId));
 
         if (game != null)
         {
             // Add to game group
             await Groups.AddToGroupAsync(Context.ConnectionId, $"game_{game.Id}");
-
-            if (game.State == GameState.InGame)
-            {
-                // Handle reconnection for in-game state
-                await ReconnectToGame(game.Id, userId);
-            }
-        }
-
-        _logger.LogInformation("User {UserId} connected to hub", userId);
-        await base.OnConnectedAsync();
-    }
-
-    private async Task ReconnectToGame(int gameId, int userId)
-    {
-        var game = await _context.Games.FindAsync(gameId);
-        if (game == null || game.State != GameState.InGame)
-        {
-            return;
-        }
-
-        // Add to game group
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"game_{gameId}");
-
-        // Update connection status
-        game.SetPlayerConnection(userId, true);
-        if (game.PlayerConnected.ContainsKey(userId))
-        {
-            game.PlayerConnected[userId] = true;
+            _logger.LogInformation("User {UserId} connected to hub and joined active game {GameId} in state {State}", 
+                userId, game.Id, game.State);
         }
         else
         {
-            game.PlayerConnected.Add(userId, true);
+            _logger.LogInformation("User {UserId} connected to hub (not in any active game)", userId);
         }
 
-        await _context.SaveChangesAsync();
-
-        // Notify other players about reconnection
-        await Clients.Group($"game_{gameId}").SendAsync("PlayerReconnected", new
-        {
-            PlayerId = userId,
-            ConnectedPlayers = game.PlayerConnected
-        });
-
-        _logger.LogInformation("User {UserId} reconnected to game {GameId}", userId, gameId);
+        await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -91,11 +57,15 @@ public class MazeGameHub : Hub
             // Handle disconnections for active games
             if (game.State == GameState.InGame)
             {
-                // Mark player as disconnected
-                game.SetPlayerConnection(userId, false);
+                // Remove player from the game when in-game
+                var player = game.Players.FirstOrDefault(p => p.Id == userId);
+                if (player != null)
+                {
+                    game.Players.Remove(player);
+                }
                 
                 // Check if all players are disconnected
-                if (game.AreAllPlayersDisconnected())
+                if (!game.Players.Any())
                 {
                     _context.Games.Remove(game);
                     _logger.LogInformation("Game {GameId} deleted as all players disconnected", game.Id);
@@ -321,23 +291,6 @@ public class MazeGameHub : Hub
         });
 
         _logger.LogInformation("Game {GameId} started by user {UserId}", gameId, userId);
-    }
-
-    public async Task CompleteGame(int gameId)
-    {
-        var userId = int.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var game = await _context.Games.FindAsync(gameId);
-
-        if (game == null || game.State != GameState.Finished)
-        {
-            await Clients.Caller.SendAsync("GameError", "Cannot complete game");
-            return;
-        }
-
-        // Remove player from group
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"game_{gameId}");
-
-        _logger.LogInformation("User {UserId} completed game {GameId}", userId, gameId);
     }
 
     public async Task LeaveLobby(int gameId)

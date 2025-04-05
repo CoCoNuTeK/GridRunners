@@ -55,17 +55,17 @@ class SignalRService {
 
     private setupConnectionEvents(connection: HubConnection) {
         connection.onreconnecting((error) => {
-            console.log('SignalR Reconnecting...', error);
+            console.log('SignalR Reconnecting...');
             this.reconnectAttempts++;
         });
 
         connection.onreconnected((connectionId) => {
-            console.log('SignalR Reconnected with connectionId:', connectionId);
+            console.log('SignalR Reconnected');
             this.reconnectAttempts = 0;
         });
 
-        connection.onclose((error) => {
-            console.log('SignalR Connection closed:', error);
+        connection.onclose(() => {
+            console.log('SignalR Connection closed');
             this.reconnectAttempts = 0;
             this.isInitialized = false;
         });
@@ -78,11 +78,9 @@ class SignalRService {
 
         // Game Events
         connection.on('GameStarted', (data) => {
-            console.log('GameStarted event received:', data);
             this.eventHandlers.GameStarted?.(data);
         });
         connection.on('PlayerMoved', (data) => {
-            console.log('PlayerMoved event received:', data);
             this.eventHandlers.PlayerMoved?.(data);
         });
         connection.on('PlayerDisconnected', (data) => this.eventHandlers.PlayerDisconnected?.(data));
@@ -94,7 +92,6 @@ class SignalRService {
     public async initialize(): Promise<void> {
         // If already connected, return
         if (this.isConnected()) {
-            console.log('SignalR already connected');
             return;
         }
 
@@ -108,11 +105,11 @@ class SignalRService {
             try {
                 this.connection = this.createConnection();
                 await this.connection.start();
-                console.log('SignalR Connected!');
+                console.log('SignalR Connected');
                 this.isInitialized = true;
                 this.reconnectAttempts = 0;
             } catch (err) {
-                console.error('SignalR Connection Error:', err);
+                console.error('SignalR Connection Error');
                 this.connection = null;
                 this.isInitialized = false;
                 throw err;
@@ -128,11 +125,8 @@ class SignalRService {
         if (!this.connection) return Promise.resolve();
         
         if (this.connection.state === 'Disconnected') {
-            console.log('SignalR already disconnected');
             return Promise.resolve();
         }
-
-        console.log('Stopping SignalR connection...');
         
         // Stop the connection
         await this.connection.stop();
@@ -182,7 +176,6 @@ class SignalRService {
         try {
             await this.connection!.invoke('MovePlayer', gameId, x, y, currentX, currentY, grid, playerPositions);
         } catch (error) {
-            console.error('Error moving player:', error);
             throw error;
         }
     }
@@ -193,13 +186,6 @@ class SignalRService {
         }
         await this.connection!.invoke('LeaveLobby', gameId);
         await this.stop();
-    }
-
-    public async completeGame(gameId: number): Promise<void> {
-        if (!this.isConnected()) {
-            throw new Error('SignalR connection is not established');
-        }
-        await this.connection!.invoke('CompleteGame', gameId);
     }
 }
 
