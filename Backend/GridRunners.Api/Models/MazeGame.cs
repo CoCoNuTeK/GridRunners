@@ -12,7 +12,7 @@ namespace GridRunners.Api.Models;
 public class MazeGame
 {
     /// <summary>
-    /// Maximum total number of players (including bots) allowed in a game
+    /// Maximum total number of players allowed in a game
     /// </summary>
     public const int MaxPlayers = 4;
 
@@ -67,9 +67,6 @@ public class MazeGame
     
     // Winner reference - just store the ID as we can query User table when needed
     public int? WinnerId { get; private set; }
-
-    // Number of bots in the game
-    public int BotCount { get; private set; }
     
     // Maze properties - not stored in DB
     [NotMapped]
@@ -89,20 +86,11 @@ public class MazeGame
     // Navigation property for N:N relationship with User
     public virtual ICollection<User> Players { get; init; } = new List<User>();
 
-    // Helper methods for player/bot management
+    // Helper methods for player management
     public bool CanAddParticipant() => 
-        Players.Count + BotCount < MaxPlayers;
+        Players.Count < MaxPlayers;
 
-    public bool AddBot()
-    {
-        if (!CanAddParticipant() || State != GameState.Lobby)
-            return false;
-            
-        BotCount++;
-        return true;
-    }
-
-    public int TotalParticipants => Players.Count + BotCount;
+    public int TotalParticipants => Players.Count;
 
     // Default constructor for EF Core
     protected MazeGame() 
@@ -134,7 +122,7 @@ public class MazeGame
             InitPlayerConnections();
             StartedAt = DateTime.UtcNow;
             State = GameState.InGame;
-            Console.WriteLine($"Game initialized with {Players.Count} players and {BotCount} bots");
+            Console.WriteLine($"Game initialized with {Players.Count} players");
         }
     }
 
@@ -144,11 +132,6 @@ public class MazeGame
         foreach (var player in Players)
         {
             PlayerConnected[player.Id] = true;
-        }
-        // Initialize bot connections
-        for (int i = 0; i < BotCount; i++)
-        {
-            PlayerConnected[1000 + i] = true;
         }
     }
 
@@ -169,21 +152,11 @@ public class MazeGame
     {
         PlayerColors.Clear();
         var orderedPlayers = Players.OrderBy(p => p.Id).ToList();
-        var random = new Random();
         
-        // Assign colors to real players first
+        // Assign colors to players
         for (int i = 0; i < orderedPlayers.Count; i++)
         {
             PlayerColors[orderedPlayers[i].Id] = AvailableColors[i];
-        }
-
-        // Assign remaining colors to bots randomly
-        var remainingColors = AvailableColors.Skip(orderedPlayers.Count).ToList();
-        for (int i = 0; i < BotCount; i++)
-        {
-            var colorIndex = random.Next(remainingColors.Count);
-            PlayerColors[1000 + i] = remainingColors[colorIndex]; // Use 1000+ for bot IDs
-            remainingColors.RemoveAt(colorIndex);
         }
     }
 
@@ -285,7 +258,7 @@ public class MazeGame
             (Width - 2, Height - 2)    // Bottom-right
         };
 
-        // Place real players at opposing corners
+        // Place players at corners
         var playerList = Players.OrderBy(p => p.Id).ToList();
         for (int i = 0; i < playerList.Count && i < corners.Length; i++)
         {
@@ -295,18 +268,6 @@ public class MazeGame
                 var (x, y) = corners[i];
                 PlayerPositions[player.Id] = new { X = x, Y = y };
                 Grid[y, x] = CellType.Free; // Ensure corner is walkable
-            }
-        }
-
-        // Place bots at remaining corners
-        for (int i = 0; i < BotCount; i++)
-        {
-            var cornerIndex = playerList.Count + i;
-            if (cornerIndex < corners.Length)
-            {
-                var (x, y) = corners[cornerIndex];
-                PlayerPositions[1000 + i] = new { X = x, Y = y };
-                Grid[y, x] = CellType.Free;
             }
         }
     }
@@ -429,9 +390,10 @@ public class MazeGame
         // Convert the jagged array from client to 2D array for server
         for (int y = 0; y < clientGrid.Length && y < Height; y++)
         {
+            if (clientGrid[y] == null) continue; // Skip null rows
             for (int x = 0; x < clientGrid[y].Length && x < Width; x++)
             {
-                Grid[y, x] = (CellType)clientGrid[y][x];
+                Grid![y, x] = (CellType)clientGrid[y][x];
             }
         }
         
@@ -441,7 +403,7 @@ public class MazeGame
         {
             for (int x = 0; x < Width; x++)
             {
-                switch (Grid[y, x])
+                switch (Grid![y, x])
                 {
                     case CellType.Wall: wallsAfter++; break;
                     case CellType.Free: freeAfter++; break;
@@ -475,6 +437,7 @@ public class MazeGame
                 {
                     // Handle different types of position data
                     var position = kvp.Value;
+                    if (position == null) continue;
                     
                     // Handle JsonElement case (most common when coming from JSON)
                     if (position is System.Text.Json.JsonElement jsonElement)
@@ -489,7 +452,7 @@ public class MazeGame
                         }
                     }
                     // Handle dynamic object case
-                    else if (position != null)
+                    else
                     {
                         // Try to access x and y as dynamic properties
                         try

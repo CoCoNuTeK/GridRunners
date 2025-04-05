@@ -67,7 +67,7 @@ const JoinLobbyPage: React.FC = () => {
     };
 
     const isGameFull = (game: GameResponse) => {
-        return game.players.length + game.botCount >= 4;
+        return game.players.length >= 4;
     };
 
     return (
@@ -117,8 +117,7 @@ const JoinLobbyPage: React.FC = () => {
                                         <h3>{game.name}</h3>
                                         <p>Created by: {game.players[0]?.displayName || 'Unknown'}</p>
                                         <div className={`player-count ${isGameFull(game) ? 'full' : ''}`}>
-                                            Players: {game.players.length + game.botCount}/4
-                                            {game.botCount > 0 && ` (${game.botCount} bots)`}
+                                            Players: {game.players.length}/4
                                         </div>
                                     </div>
                                     <button

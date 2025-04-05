@@ -173,7 +173,7 @@ public class MazeGameController : ControllerBase
                 return BadRequest(new { message = "Game is not in lobby state" });
 
             if (!game.CanAddParticipant())
-                return StatusCode(StatusCodes.Status409Conflict, new { message = $"Game is full. Maximum {MazeGame.MaxPlayers} participants (players + bots) allowed." });
+                return StatusCode(StatusCodes.Status409Conflict, new { message = $"Game is full. Maximum {MazeGame.MaxPlayers} players allowed." });
 
             game.Players.Add(user);
             await _context.SaveChangesAsync();

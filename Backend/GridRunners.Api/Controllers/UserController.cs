@@ -153,9 +153,7 @@ public class UserController : ControllerBase
             EndedAt: game.EndedAt,
             State: game.State,
             WonByUser: game.WinnerId == userId,
-            Participants: game.Players.Select(p => p.DisplayName ?? p.Username).Concat(
-                Enumerable.Repeat("Bot", game.BotCount)
-            ).ToList()
+            Participants: game.Players.Select(p => p.DisplayName ?? p.Username).ToList()
         )).ToList();
 
         return UserProfileWithHistoryResponse.FromUser(user, matchHistory);

@@ -15,7 +15,6 @@ export interface MazeGame {
     endedAt: string | null;
     state: GameState;
     winnerId: number | null;
-    botCount: number;
     players: Player[];
 }
 
@@ -34,7 +33,6 @@ export interface GameResponse {
     name: string;
     state: GameState;
     players: Player[];
-    botCount: number;
     createdAt: string;
     startedAt?: string;
     finishedAt?: string;

@@ -55,16 +55,6 @@ const GameLobbyPage: React.FC = () => {
                         });
                     });
 
-                    signalRService.on('BotAdded', (data) => {
-                        setGame(prevGame => {
-                            if (!prevGame) return prevGame;
-                            return {
-                                ...prevGame,
-                                botCount: data.botCount
-                            };
-                        });
-                    });
-
                     signalRService.on('GameStarted', (data) => {
                         // Store the game state and redirect
                         setGame(prevGame => {
@@ -75,7 +65,6 @@ const GameLobbyPage: React.FC = () => {
                                 playerPositions: data.playerPositions,
                                 players: data.players,
                                 playerColors: data.playerColors,
-                                botCount: data.botCount,
                                 width: data.width,
                                 height: data.height
                             };
@@ -108,7 +97,6 @@ const GameLobbyPage: React.FC = () => {
             return () => {
                 signalRService.off('PlayerJoined');
                 signalRService.off('PlayerLeft');
-                signalRService.off('BotAdded');
                 signalRService.off('GameStarted');
                 signalRService.off('GameError');
             };
@@ -116,16 +104,6 @@ const GameLobbyPage: React.FC = () => {
             setError('Game data not found. Please try creating a new game.');
         }
     }, [location.state]);
-
-    const handleAddBot = React.useCallback(async () => {
-        if (!game) return;
-        try {
-            await signalRService.addBot(game.id);
-        } catch (error) {
-            console.error('Failed to add bot:', error);
-            setError('Failed to add bot. Please try again.');
-        }
-    }, [game]);
 
     const handleStartGame = React.useCallback(async () => {
         if (!game) return;
@@ -214,27 +192,10 @@ const GameLobbyPage: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            {Array.from({ length: game.botCount }).map((_, index) => (
-                                <div key={`bot-${index}`} className="player-card bot">
-                                    <div className="player-avatar">
-                                        <div className="bot-avatar">🤖</div>
-                                    </div>
-                                    <div className="player-info">
-                                        <h3>Bot {index + 1}</h3>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
 
                     <div className="lobby-actions">
-                        <button
-                            onClick={handleAddBot}
-                            disabled={game.players.length + game.botCount >= 4}
-                            className="add-bot-button"
-                        >
-                            Add Bot
-                        </button>
                         <button
                             onClick={handleStartGame}
                             disabled={game.players.length < 2}

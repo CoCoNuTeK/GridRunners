@@ -12,18 +12,12 @@ export interface PlayerLeftEvent {
     remainingPlayers: Player[];
 }
 
-export interface BotAddedEvent {
-    botCount: number;
-    totalParticipants: number;
-}
-
 // Game Events
 export interface GameStartedEvent {
     grid: number[][];
     playerPositions: Record<number, { x: number; y: number }>;
     players: { id: number; displayName: string }[];
     playerColors: Record<number, string>;
-    botCount: number;
     width: number;
     height: number;
 }
@@ -64,7 +58,6 @@ export interface GameState {
     playerPositions: Record<number, { x: number; y: number }>;
     playerColors: Record<number, PlayerColor>;
     playerConnected: Record<number, boolean>;
-    botCount: number;
     width: number;
     height: number;
 }

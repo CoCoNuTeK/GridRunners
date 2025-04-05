@@ -7,7 +7,6 @@ export interface GameEvents {
     // Lobby Events
     PlayerJoined: (data: { playerId: number; displayName: string; profileImageUrl?: string }) => void;
     PlayerLeft: (data: { playerId: number; displayName: string; remainingPlayers: Player[] }) => void;
-    BotAdded: (data: { botCount: number; totalParticipants: number }) => void;
     
     // Game Events
     GameStarted: (data: {
@@ -15,7 +14,6 @@ export interface GameEvents {
         playerPositions: Record<number, { x: number; y: number }>;
         players: { id: number; displayName: string }[];
         playerColors: Record<number, string>;
-        botCount: number;
         width: number;
         height: number;
     }) => void;
@@ -77,7 +75,6 @@ class SignalRService {
         // Lobby Events
         connection.on('PlayerJoined', (data) => this.eventHandlers.PlayerJoined?.(data));
         connection.on('PlayerLeft', (data) => this.eventHandlers.PlayerLeft?.(data));
-        connection.on('BotAdded', (data) => this.eventHandlers.BotAdded?.(data));
 
         // Game Events
         connection.on('GameStarted', (data) => {
@@ -188,13 +185,6 @@ class SignalRService {
             console.error('Error moving player:', error);
             throw error;
         }
-    }
-
-    public async addBot(gameId: number): Promise<void> {
-        if (!this.isConnected()) {
-            throw new Error('SignalR connection is not established');
-        }
-        await this.connection!.invoke('AddBot', gameId);
     }
 
     public async leaveLobby(gameId: number): Promise<void> {

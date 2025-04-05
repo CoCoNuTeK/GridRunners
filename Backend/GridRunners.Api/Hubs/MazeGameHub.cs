@@ -122,7 +122,7 @@ public class MazeGameHub : Hub
                     // Remove player from the game
                     game.Players.Remove(player);
 
-                    // If this was the last player (excluding bots), delete the lobby
+                    // If this was the last player, delete the lobby
                     if (game.Players.Count == 0)
                     {
                         _context.Games.Remove(game);
@@ -316,43 +316,11 @@ public class MazeGameHub : Hub
             PlayerPositions = game.PlayerPositions,
             Players = game.Players.Select(p => new { p.Id, p.DisplayName }),
             PlayerColors = game.PlayerColors,
-            BotCount = game.BotCount,
             Width = MazeGame.Width,
             Height = MazeGame.Height
         });
 
         _logger.LogInformation("Game {GameId} started by user {UserId}", gameId, userId);
-    }
-
-    public async Task AddBot(int gameId)
-    {
-        var userId = int.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var game = await _context.Games
-            .Include(g => g.Players)
-            .FirstOrDefaultAsync(g => g.Id == gameId);
-
-        if (game == null || !game.Players.Any(p => p.Id == userId))
-        {
-            await Clients.Caller.SendAsync("GameError", "Cannot add bot");
-            return;
-        }
-
-        if (!game.AddBot())
-        {
-            await Clients.Caller.SendAsync("GameError", "Game is full");
-            return;
-        }
-
-        await _context.SaveChangesAsync();
-        
-        // Notify all players about the new bot
-        await Clients.Group($"game_{gameId}").SendAsync("BotAdded", new
-        {
-            BotCount = game.BotCount,
-            TotalParticipants = game.TotalParticipants
-        });
-
-        _logger.LogInformation("Bot added to game {GameId} by user {UserId}", gameId, userId);
     }
 
     public async Task CompleteGame(int gameId)
@@ -394,7 +362,7 @@ public class MazeGameHub : Hub
 
         game.Players.Remove(player);
 
-        // If this was the last player, delete the lobby (regardless of bots)
+        // If this was the last player, delete the lobby
         if (game.ShouldDeleteLobby())
         {
             _context.Games.Remove(game);

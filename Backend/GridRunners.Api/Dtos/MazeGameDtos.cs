@@ -18,7 +18,6 @@ public record GameResponse(
     DateTime? EndedAt,
     GameState State,
     int? WinnerId,
-    int BotCount,
     ICollection<PlayerInfo> Players
 );
 
@@ -44,7 +43,6 @@ public static class GameDtoExtensions
             EndedAt: game.EndedAt,
             State: game.State,
             WinnerId: game.WinnerId,
-            BotCount: game.BotCount,
             Players: game.Players.Select(p => new PlayerInfo(
                 Id: p.Id,
                 Username: p.Username,
