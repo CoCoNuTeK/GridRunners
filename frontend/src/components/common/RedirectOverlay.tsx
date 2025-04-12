@@ -17,7 +17,6 @@ export const RedirectOverlay: React.FC<RedirectOverlayProps> = ({
     type = 'success'
 }) => {
     useEffect(() => {
-        console.log("RedirectOverlay rendered with message:", message, "and type:", type);
         const timer = setTimeout(() => {
             onComplete();
         }, duration);

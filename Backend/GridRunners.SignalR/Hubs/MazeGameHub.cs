@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
-using GridRunners.Api.Models;
-using GridRunners.Api.Data;
+using GridRunners.Core.Models;
+using GridRunners.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using static GridRunners.Api.Models.MazeGame;
+using static GridRunners.Core.Models.MazeGame;
 
-namespace GridRunners.Api.Hubs;
+namespace GridRunners.SignalR.Hubs;
 
 public class MazeGameHub : Hub
 {
@@ -45,6 +45,14 @@ public class MazeGameHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        // Check if the user is authenticated
+        if (Context.User?.Identity?.IsAuthenticated != true)
+        {
+            _logger.LogWarning("Anonymous connection disconnected (no authenticated user)");
+            await base.OnDisconnectedAsync(exception);
+            return;
+        }
+
         var userId = int.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
         
         // Find any game the player is in
@@ -57,31 +65,20 @@ public class MazeGameHub : Hub
             // Handle disconnections for active games
             if (game.State == GameState.InGame)
             {
-                // Remove player from the game when in-game
-                var player = game.Players.FirstOrDefault(p => p.Id == userId);
-                if (player != null)
+                // Update player connection status instead of removing the player
+                if (game.PlayerConnected.ContainsKey(userId))
                 {
-                    game.Players.Remove(player);
-                }
-                
-                // Check if all players are disconnected
-                if (!game.Players.Any())
-                {
-                    _context.Games.Remove(game);
-                    _logger.LogInformation("Game {GameId} deleted as all players disconnected", game.Id);
-                }
-                else
-                {
+                    game.PlayerConnected[userId] = false;
+                    
                     // Notify other players about disconnection
                     await Clients.Group($"game_{game.Id}").SendAsync("PlayerDisconnected", new
                     {
                         PlayerId = userId,
                         ConnectedPlayers = game.PlayerConnected
                     });
+                    
+                    _logger.LogInformation("User {UserId} disconnected from active game {GameId}", userId, game.Id);
                 }
-
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("User {UserId} disconnected from active game {GameId}", userId, game.Id);
             }
             // Handle disconnections from lobby
             else if (game.State == GameState.Lobby)
@@ -109,7 +106,6 @@ public class MazeGameHub : Hub
                         });
                     }
 
-                    await _context.SaveChangesAsync();
                     _logger.LogInformation("User {UserId} disconnected from lobby {GameId}", userId, game.Id);
                 }
             }
@@ -118,6 +114,8 @@ public class MazeGameHub : Hub
             {
                 _logger.LogInformation("User {UserId} disconnected from finished game {GameId}", userId, game.Id);
             }
+            
+            await _context.SaveChangesAsync();
         }
 
         await base.OnDisconnectedAsync(exception);

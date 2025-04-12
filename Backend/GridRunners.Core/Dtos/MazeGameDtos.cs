@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using GridRunners.Api.Models;
-using static GridRunners.Api.Models.MazeGame;
+using GridRunners.Core.Models;
+using static GridRunners.Core.Models.MazeGame;
 
-namespace GridRunners.Api.Dtos;
+namespace GridRunners.Core.Dtos;
 
 public record CreateGameRequest(
     [Required]

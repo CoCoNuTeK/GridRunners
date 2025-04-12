@@ -1,8 +1,8 @@
-using GridRunners.Api.Models;
+using GridRunners.Core.Models;
 using Microsoft.AspNetCore.Http;
-using static GridRunners.Api.Models.MazeGame;
+using static GridRunners.Core.Models.MazeGame;
 
-namespace GridRunners.Api.Dtos;
+namespace GridRunners.Core.Dtos;
 
 public record UpdateDisplayNameRequest(string DisplayName);
 

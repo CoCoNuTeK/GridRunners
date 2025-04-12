@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace GridRunners.Api.Models;
+namespace GridRunners.Core.Models;
 
 public class User
 {
@@ -114,4 +114,4 @@ public class User
         var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
         return Convert.ToBase64String(hashedBytes);
     }
-} 
+}

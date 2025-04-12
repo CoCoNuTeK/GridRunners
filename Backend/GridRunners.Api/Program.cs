@@ -1,13 +1,12 @@
 using System.Text;
 using GridRunners.Api.Configuration;
-using GridRunners.Api.Data;
+using GridRunners.Core.Data;
 using GridRunners.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
-using GridRunners.Api.Hubs;
 using Microsoft.AspNetCore.Mvc;
 using GridRunners.Api.Configuration.ServiceConfigurations;
 
@@ -31,6 +30,5 @@ if (app.Environment.IsDevelopment())
 app.UseApiConfiguration(app.Configuration);
 
 app.MapControllers();
-app.MapHub<MazeGameHub>("/hubs/game");
 
 app.Run();

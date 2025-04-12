@@ -1,5 +1,5 @@
 // WebSocket Configuration
-export const WEBSOCKET_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7119';
+export const WEBSOCKET_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7092';
 
 // SignalR Hub Configuration
 export const SIGNALR_HUB_URL = `${WEBSOCKET_BASE_URL}/hubs/game`;

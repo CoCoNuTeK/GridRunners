@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GridRunners.Api.Dtos;
+namespace GridRunners.Core.Dtos;
 
 public record LoginRequest(
     [Required(ErrorMessage = "Username is required")]

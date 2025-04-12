@@ -1,7 +1,7 @@
-using GridRunners.Api.Models;
+using GridRunners.Core.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace GridRunners.Api.Data;
+namespace GridRunners.Core.Data;
 
 public class ApplicationDbContext : DbContext
 {

@@ -1,4 +1,4 @@
-using GridRunners.Api.Data;
+using GridRunners.Core.Data;
 using GridRunners.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using GridRunners.Api.Configuration;

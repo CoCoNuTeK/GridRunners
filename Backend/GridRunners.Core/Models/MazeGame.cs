@@ -7,7 +7,7 @@ using System.Dynamic;
 using Microsoft.CSharp.RuntimeBinder;
 using System.Text.Json;
 
-namespace GridRunners.Api.Models;
+namespace GridRunners.Core.Models;
 
 public class MazeGame
 {

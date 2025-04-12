@@ -1,9 +1,9 @@
 using GridRunners.Api.Configuration;
 using Microsoft.AspNetCore.Mvc;
-using GridRunners.Api.Models;
+using GridRunners.Core.Models;
 using GridRunners.Api.Services;
-using GridRunners.Api.Data;
-using GridRunners.Api.Dtos;
+using GridRunners.Core.Data;
+using GridRunners.Core.Dtos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
@@ -64,7 +64,7 @@ public class AuthController : ControllerBase
             {
                 try
                 {
-                    user = GridRunners.Api.Models.User.CreateNew(request.Username, request.Password);
+                    user = GridRunners.Core.Models.User.CreateNew(request.Username, request.Password);
                     _context.Users.Add(user);
                     await _context.SaveChangesAsync();
                     _logger.LogInformation("Created new user: {Username}", request.Username);

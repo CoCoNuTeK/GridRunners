@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using GridRunners.Api.Models;
-using GridRunners.Api.Data;
-using GridRunners.Api.Dtos;
+using GridRunners.Core.Models;
+using GridRunners.Core.Data;
+using GridRunners.Core.Dtos;
 using GridRunners.Api.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;

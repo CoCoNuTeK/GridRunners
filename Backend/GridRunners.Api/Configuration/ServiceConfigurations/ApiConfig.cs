@@ -9,7 +9,6 @@ public static class ApiConfig
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
         services.AddControllers();
-        services.AddSignalR();
         services.AddCors();
 
         // Configure API Versioning

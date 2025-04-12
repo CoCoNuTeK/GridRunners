@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthGuard from './components/auth/AuthGuard';
 import LoginPage from './pages/login/LoginPage';
@@ -57,6 +57,8 @@ const App: React.FC = () => {
         <AuthProvider>
             <Router>
                 <Routes>
+                    {/* Root path redirects directly to login */}
+                    <Route path="/" element={<Navigate to="/login" replace />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/profile" element={
                         <AuthGuard>
