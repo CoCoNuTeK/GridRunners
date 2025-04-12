@@ -17,7 +17,7 @@ public record UserProfileResponse(
     public static UserProfileResponse FromUser(User user) => new(
         Username: user.Username,
         DisplayName: user.DisplayName,
-        ProfileImageUrl: user.GetProfileImageUrlWithSas()
+        ProfileImageUrl: user.ProfileImageUrl
     );
 }
 
@@ -31,7 +31,7 @@ public record UserProfileWithHistoryResponse(
     public static UserProfileWithHistoryResponse FromUser(User user, List<GameHistoryResponse> history) => new(
         Username: user.Username,
         DisplayName: user.DisplayName,
-        ProfileImageUrl: user.GetProfileImageUrlWithSas(),
+        ProfileImageUrl: user.ProfileImageUrl,
         MatchHistory: history
     );
 }

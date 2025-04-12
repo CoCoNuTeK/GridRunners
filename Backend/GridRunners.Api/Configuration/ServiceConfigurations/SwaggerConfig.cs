@@ -14,14 +14,10 @@ public static class SwaggerConfig
             {
                 Title = "Grid Runners API",
                 Version = ApiVersions.Current,
-                Description = "A multiplayer maze racing game API",
+                Description = "A multiplayer maze game API where players use arrow keys to navigate. The first player to reach a specific square wins.",
                 Contact = new OpenApiContact
                 {
                     Name = "Grid Runners Team"
-                },
-                License = new OpenApiLicense
-                {
-                    Name = "MIT",
                 }
             });
 

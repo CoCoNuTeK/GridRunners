@@ -199,7 +199,7 @@ const GamePage: React.FC = () => {
             // Restore scrolling when component unmounts
             document.body.style.overflow = '';
         };
-    }, [location.state.game, playerId]);
+    }, [location.state.game, playerId, winner]);
 
     const getPlayerColorClass = (colorHex: string | undefined, index: number): string => {
         // If no color provided or players have the same color, assign based on player index

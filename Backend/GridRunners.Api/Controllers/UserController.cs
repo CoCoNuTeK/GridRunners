@@ -108,11 +108,11 @@ public class UserController : ControllerBase
                 await _blobStorage.DeleteUserImageAsync(user.ProfileImageUrl);
             }
 
-            // Upload new image and get URL with SAS token
-            var (imageUrl, sasToken, expiration) = await _blobStorage.UploadUserImageAsync(userId, request.ImageFile);
+            // Upload new image
+            var imageUrl = await _blobStorage.UploadUserImageAsync(userId, request.ImageFile);
             
-            // Update user profile with new image URL and SAS token
-            user.UpdateProfileImage(imageUrl, sasToken, expiration);
+            // Update user profile with new image URL
+            user.UpdateProfileImage(imageUrl);
             await _context.SaveChangesAsync();
 
             return UserProfileResponse.FromUser(user);
@@ -121,19 +121,6 @@ public class UserController : ControllerBase
         {
             _logger.LogError(ex, "Error processing profile image for user {UserId}", userId);
             
-            // Ensure the token is refreshed if there was an error
-            if (!string.IsNullOrEmpty(user!.ProfileImageUrl))
-            {
-                try {
-                    var (sasToken, expiration) = await _blobStorage.GetValidSasTokenAsync(user.ProfileImageUrl, user.ProfileImageSasToken);
-                    user.UpdateProfileImage(user.ProfileImageUrl, sasToken, expiration);
-                    await _context.SaveChangesAsync();
-                }
-                catch (Exception tokenEx) {
-                    _logger.LogError(tokenEx, "Failed to refresh SAS token during error recovery for user {UserId}", userId);
-                }
-            }
-
             if (ex is InvalidOperationException)
                 return StatusCode(StatusCodes.Status415UnsupportedMediaType, new { message = ex.Message });
                 
@@ -157,12 +144,9 @@ public class UserController : ControllerBase
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await _context.Users.FindAsync(userId);
 
-        // Get valid SAS token if needed
-        if (!string.IsNullOrEmpty(user!.ProfileImageUrl))
+        if (user == null)
         {
-            var (sasToken, expiration) = await _blobStorage.GetValidSasTokenAsync(user.ProfileImageUrl, user.ProfileImageSasToken);
-            user.UpdateProfileImage(user.ProfileImageUrl, sasToken, expiration);
-            await _context.SaveChangesAsync();
+            return NotFound(new { message = "User not found" });
         }
 
         var games = await _context.Games

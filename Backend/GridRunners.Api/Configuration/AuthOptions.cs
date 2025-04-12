@@ -8,4 +8,5 @@ public record AuthOptions
     public string Audience { get; init; } = null!;
     public string Secret { get; init; } = null!;
     public int ExpirationHours { get; init; }
+    public string SecretKeyName { get; init; } = null!;
 } 

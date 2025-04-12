@@ -60,9 +60,7 @@ const ProfilePage: React.FC = () => {
     const handleLogout = async () => {
         try {
             await logout();
-            setRedirectMessage('See you soon!');
-            setRedirectDestination('Login Page');
-            setShowRedirect(true);
+            navigate('/unauthorized', { state: { logout: true } });
         } catch (err) {
             setError('Failed to logout');
             console.error('Logout error:', err);

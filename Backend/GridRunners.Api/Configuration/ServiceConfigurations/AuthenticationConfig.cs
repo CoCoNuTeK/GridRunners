@@ -2,6 +2,8 @@ using System.Text;
 using GridRunners.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Azure.Security.KeyVault.Secrets;
+using GridRunners.Api.Configuration;
 
 namespace GridRunners.Api.Configuration.ServiceConfigurations;
 
@@ -12,24 +14,33 @@ public static class AuthenticationConfig
         // Configure Auth
         var authSection = configuration.GetSection(AuthOptions.SectionName);
         var authOptions = authSection.Get<AuthOptions>()!;
-
-        // Generate a secure key if none is provided
-        if (string.IsNullOrEmpty(authOptions.Secret))
+        
+        // Get JWT secret from KeyVault
+        var provider = services.BuildServiceProvider();
+        var secretClient = provider.GetRequiredService<SecretClient>();
+        
+        string jwtSecret;
+        try
         {
-            var generatedKey = AuthService.GenerateSecureKey();
+            // Try to get secret from Key Vault
+            var secretName = authOptions.SecretKeyName;
+            if (string.IsNullOrEmpty(secretName))
+            {
+                secretName = "jwt-secret-key";
+            }
             
-            // Only in development, we generate and use a temporary key
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
-            {
-                authOptions = authOptions with { Secret = generatedKey };
-                Console.WriteLine($"Generated new secure key: {generatedKey}");
-                Console.WriteLine("Make sure to save this key in your appsettings.Development.json or secure storage for production.");
-            }
-            else
-            {
-                throw new InvalidOperationException("JWT Secret key is not configured in production!");
-            }
+            jwtSecret = secretClient.GetSecret(secretName).Value.Value;
+            Console.WriteLine($"Retrieved JWT secret from Key Vault with key: {secretName}");
         }
+        catch (Exception ex)
+        {
+            // Log the error and fail
+            Console.WriteLine($"Error retrieving JWT secret from Key Vault: {ex.Message}");
+            throw new InvalidOperationException($"Failed to retrieve JWT Secret key from Key Vault: {ex.Message}");
+        }
+        
+        // Set the secret in the auth options
+        authOptions = authOptions with { Secret = jwtSecret };
 
         // Register the configured instance
         services.AddSingleton(authOptions);

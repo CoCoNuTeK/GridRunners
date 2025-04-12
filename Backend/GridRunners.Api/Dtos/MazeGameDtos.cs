@@ -48,7 +48,7 @@ public static class GameDtoExtensions
                 Id: p.Id,
                 Username: p.Username,
                 DisplayName: p.DisplayName,
-                ProfileImageUrl: p.GetProfileImageUrlWithSas()
+                ProfileImageUrl: p.ProfileImageUrl
             )).ToList()
         );
     }

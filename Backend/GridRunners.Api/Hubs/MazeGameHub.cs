@@ -221,7 +221,7 @@ public class MazeGameHub : Hub
         {
             PlayerId = userId,
             DisplayName = user.DisplayName,
-            ProfileImageUrl = user.GetProfileImageUrlWithSas()
+            ProfileImageUrl = user.ProfileImageUrl
         });
         
         _logger.LogInformation("User {UserId} joined game {GameId}", userId, gameId);

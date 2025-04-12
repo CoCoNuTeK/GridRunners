@@ -23,10 +23,6 @@ public class User
     
     public string? ProfileImageUrl { get; private set; }
     
-    // New properties for SAS token management
-    public string? ProfileImageSasToken { get; private set; }
-    public DateTime? ProfileImageSasExpiration { get; private set; }
-    
     // Refresh token properties
     public string? RefreshToken { get; private set; }
     public DateTime? RefreshTokenExpiresAt { get; private set; }
@@ -84,27 +80,9 @@ public class User
     // Public methods to modify properties
     public void UpdateDisplayName(string? displayName) => DisplayName = displayName;
     
-    public void UpdateProfileImage(string? imageUrl, string? sasToken = null, DateTime? sasExpiration = null)
+    public void UpdateProfileImage(string? imageUrl)
     {
         ProfileImageUrl = imageUrl;
-        ProfileImageSasToken = sasToken;
-        ProfileImageSasExpiration = sasExpiration;
-    }
-
-    public bool NeedsProfileImageSasRefresh()
-    {
-        if (string.IsNullOrEmpty(ProfileImageUrl)) return false;
-        if (ProfileImageSasExpiration == null) return true;
-        
-        // Return true if token expires in less than 1 hour or has expired
-        return ProfileImageSasExpiration.Value.AddHours(-1) <= DateTime.UtcNow;
-    }
-
-    public string? GetProfileImageUrlWithSas()
-    {
-        if (string.IsNullOrEmpty(ProfileImageUrl)) return null;
-        if (string.IsNullOrEmpty(ProfileImageSasToken)) return ProfileImageUrl;
-        return $"{ProfileImageUrl}?{ProfileImageSasToken}";
     }
     
     public void UpdatePassword(string newPassword) => PasswordHash = HashPassword(newPassword);

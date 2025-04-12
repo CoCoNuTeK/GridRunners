@@ -19,7 +19,6 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-appsettings.Development.json
 
 # Frontend (React)
 node_modules/

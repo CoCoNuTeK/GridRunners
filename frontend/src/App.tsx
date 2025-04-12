@@ -16,6 +16,7 @@ const RedirectHandler: React.FC = () => {
 
     // Check if this is an unauthorized redirect from AuthGuard
     const isUnauthorized = location.state?.from && location.state?.unauthorized;
+    const isLogout = location.state?.logout;
     
     const handleRedirectComplete = () => {
         setShowRedirect(false);
@@ -25,15 +26,26 @@ const RedirectHandler: React.FC = () => {
         navigate('/login');
     };
 
+    let message = "Page Not Found";
+    let type: "success" | "error" | "logout" = "error";
+    
+    if (isUnauthorized) {
+        message = "Unauthorized Access";
+        type = "error";
+    } else if (isLogout) {
+        message = "Thanks for playing! See you soon!";
+        type = "error";
+    }
+
     return (
         <>
             {showRedirect && (
                 <RedirectOverlay
-                    message={isUnauthorized ? "Unauthorized Access" : "Page Not Found"}
-                    destination="/login"
+                    message={message}
+                    destination="Login"
                     duration={1500}
                     onComplete={handleRedirectComplete}
-                    type={isUnauthorized ? "error" : "error"}
+                    type={type}
                 />
             )}
         </>

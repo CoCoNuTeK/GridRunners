@@ -6,7 +6,7 @@ interface RedirectOverlayProps {
     destination: string;
     duration?: number;
     onComplete: () => void;
-    type?: 'success' | 'error';
+    type?: 'success' | 'error' | 'logout';
 }
 
 export const RedirectOverlay: React.FC<RedirectOverlayProps> = ({
@@ -17,12 +17,13 @@ export const RedirectOverlay: React.FC<RedirectOverlayProps> = ({
     type = 'success'
 }) => {
     useEffect(() => {
+        console.log("RedirectOverlay rendered with message:", message, "and type:", type);
         const timer = setTimeout(() => {
             onComplete();
         }, duration);
 
         return () => clearTimeout(timer);
-    }, [duration, onComplete]);
+    }, [duration, onComplete, message, type]);
 
     return (
         <div className={`redirect-overlay ${type}`}>

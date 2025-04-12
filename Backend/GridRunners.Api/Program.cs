@@ -13,11 +13,11 @@ using GridRunners.Api.Configuration.ServiceConfigurations;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// Add services to the container - order matters for dependency injection
 builder.Services
     .AddApiServices()
-    .AddAuthenticationServices(builder.Configuration)
-    .AddStorageServices(builder.Configuration, builder.Environment)
+    .AddStorageServices(builder.Configuration, builder.Environment) // Register storage services first (includes KeyVault)
+    .AddAuthenticationServices(builder.Configuration) // Then auth services that depend on KeyVault
     .AddSwaggerServices();
 
 var app = builder.Build();
