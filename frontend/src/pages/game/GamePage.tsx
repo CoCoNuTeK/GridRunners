@@ -201,26 +201,6 @@ const GamePage: React.FC = () => {
         };
     }, [location.state.game, playerId, winner]);
 
-    const getPlayerColorClass = (colorHex: string | undefined, index: number): string => {
-        // If no color provided or players have the same color, assign based on player index
-        if (!colorHex || !game || 
-            (game.players && game.players.filter(p => game.playerColors[p.id] === colorHex).length > 1)) {
-            // Assign colors sequentially if server provided duplicates
-            const colors = ['red', 'blue', 'green', 'purple'];
-            return colors[index % colors.length];
-        }
-        
-        // Otherwise use the server-provided color
-        if (colorHex.includes('#FF3366') || colorHex.includes('#ff3366')) return 'red';
-        if (colorHex.includes('#00FFB2') || colorHex.includes('#00ffb2')) return 'blue';
-        if (colorHex.includes('#00E5FF') || colorHex.includes('#00e5ff')) return 'green';
-        if (colorHex.includes('#B366FF') || colorHex.includes('#b366ff')) return 'purple';
-        
-        // Fallback to index-based assignment
-        const colors = ['red', 'blue', 'green', 'purple'];
-        return colors[index % colors.length];
-    };
-
     const getCellClass = (cell: number, x: number, y: number): string => {
         // Start with base cell class
         const classes: string[] = ['cell'];
@@ -244,16 +224,22 @@ const GamePage: React.FC = () => {
         const playerEntry = Object.entries(game?.playerPositions || {})
             .find(([_, pos]) => pos.x === x && pos.y === y);
         
-        if (playerEntry) {
+        if (playerEntry && game) {
             const playerId = parseInt(playerEntry[0]);
-            const playerIndex = game?.players.findIndex(p => p.id === playerId) || 0;
             const isDisconnected = disconnectedPlayers.has(playerId);
             
             // Add player-specific classes
             classes.push('player');
             
-            // Use the improved color class function
-            const colorClass = getPlayerColorClass(game?.playerColors[playerId], playerIndex);
+            // Sort players by ID once
+            const sortedPlayerIds = [...game.players].sort((a, b) => a.id - b.id).map(p => p.id);
+            // Find position of this player in the sorted list
+            const playerIndex = sortedPlayerIds.indexOf(playerId);
+            
+            // Assign color based on position in sorted list
+            const colors = ['red', 'blue', 'green', 'purple'];
+            const colorClass = colors[playerIndex];
+            
             classes.push(`player-${colorClass}`);
             
             if (isDisconnected) {
@@ -272,6 +258,10 @@ const GamePage: React.FC = () => {
         return <div className="error">Game not found</div>;
     }
 
+    // Sort player IDs once for the entire component
+    const sortedPlayerIds = [...game.players].sort((a, b) => a.id - b.id).map(p => p.id);
+    const colors = ['red', 'blue', 'green', 'purple'];
+
     return (
         <div className="game-page">
             <div className="game-header">
@@ -286,13 +276,15 @@ const GamePage: React.FC = () => {
 
             <div className="game-content">
                 <div className="player-info-bar">
-                    {game.players.map((player, index) => {
+                    {game.players.map((player) => {
                         const isDisconnected = disconnectedPlayers.has(player.id);
-                        const colorClass = getPlayerColorClass(game.playerColors[player.id], index);
+                        const playerIndex = sortedPlayerIds.indexOf(player.id);
+                        const colorClass = colors[playerIndex];
                         const isCurrentPlayer = player.id === playerId;
+                        
                         return (
                             <div key={player.id} className={`player-info ${isCurrentPlayer ? 'current-player' : ''}`}>
-                                <div className={`player-color ${colorClass} ${isDisconnected ? 'disconnected' : ''}`}></div>
+                                <div className={`player-color player-${colorClass} ${isDisconnected ? 'disconnected' : ''}`}></div>
                                 <div className={`player-name ${isDisconnected ? 'disconnected' : ''}`}>
                                     {isCurrentPlayer ? 'YOU' : player.displayName}
                                 </div>

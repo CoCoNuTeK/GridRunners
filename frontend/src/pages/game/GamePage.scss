@@ -74,22 +74,22 @@
             border-radius: 50%;
             flex-shrink: 0;
             
-            &.red {
+            &.player-red {
                 background: var(--primary);
                 box-shadow: 0 0 5px var(--primary);
             }
             
-            &.blue {
-                background: var(--secondary);
-                box-shadow: 0 0 5px var(--secondary);
+            &.player-blue {
+                background: #3366FF;
+                box-shadow: 0 0 5px #3366FF;
             }
             
-            &.green {
+            &.player-green {
                 background: #00FFB2;
                 box-shadow: 0 0 5px #00FFB2;
             }
             
-            &.purple {
+            &.player-purple {
                 background: #B366FF;
                 box-shadow: 0 0 5px #B366FF;
             }
@@ -184,8 +184,8 @@
         }
         
         &.player-blue {
-            background: var(--secondary);
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+            background: #3366FF;
+            box-shadow: 0 0 10px #3366FF;
         }
         
         &.player-green {
