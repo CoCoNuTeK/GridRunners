@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { signalRService } from '../../services/websocket/signalR';
 import { GameResponse } from '../../services/rest/mazegame/types';
+import { mazeGameApi } from '../../services/rest/mazegame/api';
 import { RedirectOverlay } from '../../components/common/RedirectOverlay';
 import './GameLobbyPage.scss';
 
@@ -111,7 +112,21 @@ const GameLobbyPage: React.FC = () => {
             await signalRService.startGame(game.id);
         } catch (error) {
             console.error('Failed to start game:', error);
-            setError('Failed to start game. Please try again.');
+            
+            // If starting the game fails, attempt to clean up by deleting the game
+            try {
+                await mazeGameApi.deleteGame(game.id);
+                console.log('Game deleted successfully after failed start');
+                setError('Failed to start game. The game has been deleted.');
+                
+                // Use the existing redirect mechanism
+                setRedirectMessage('Redirecting to your profile...');
+                setRedirectDestination('Your Profile');
+                setShowRedirect(true);
+            } catch (deleteError) {
+                console.error('Failed to delete game after failed start:', deleteError);
+                setError('Failed to start game. Please try again or leave the game.');
+            }
         }
     }, [game]);
 

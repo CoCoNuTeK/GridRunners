@@ -43,6 +43,10 @@ export interface GameListResponse {
     games: GameResponse[];
 }
 
+export interface DeleteGameResponse {
+    message: string;
+}
+
 export interface GameError {
     message: string;
     code?: string;

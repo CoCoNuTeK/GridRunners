@@ -186,4 +186,57 @@ public class MazeGameController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while joining the game" });
         }
     }
+
+    /// <summary>
+    /// Deletes a game by ID. Only players who are part of the game can delete it,
+    /// and only when the game is in Lobby state.
+    /// </summary>
+    /// <param name="id">Game ID to delete</param>
+    /// <returns>Success or error response</returns>
+    /// <response code="200">Game deleted successfully</response>
+    /// <response code="400">If the game cannot be deleted</response>
+    /// <response code="401">If the user is not authenticated</response>
+    /// <response code="403">If the user is not a participant in the game</response>
+    /// <response code="404">If the game is not found</response>
+    /// <response code="500">If there was an internal error</response>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> DeleteGame(int id)
+    {
+        try
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            
+            var game = await _context.Games
+                .Include(g => g.Players)
+                .FirstOrDefaultAsync(g => g.Id == id);
+
+            if (game == null)
+                return NotFound(new { message = "Game not found" });
+                
+            // Check if the current user is a participant in the game
+            if (!game.Players.Any(p => p.Id == userId))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You are not a participant in this game" });
+                
+            // Only allow deletion of games in Lobby state
+            if (game.State != GameState.Lobby)
+                return BadRequest(new { message = "Only games in Lobby state can be deleted" });
+
+            _context.Games.Remove(game);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("User {UserId} deleted game {GameId}", userId, id);
+            return Ok(new { message = "Game deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting game {GameId}", id);
+            return StatusCode(500, new { message = "An error occurred while deleting the game" });
+        }
+    }
 } 
