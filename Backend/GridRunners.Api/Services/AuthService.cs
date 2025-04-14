@@ -2,20 +2,19 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using GridRunners.Api.Configuration;
+using GridRunners.Api.Configuration.Runtime;
 using GridRunners.Core.Models;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GridRunners.Api.Services;
 
 public class AuthService
 {
-    private readonly AuthOptions _authOptions;
+    private readonly RuntimeAuthConfig _authConfig;
 
-    public AuthService(AuthOptions authOptions)
+    public AuthService(RuntimeAuthConfig authConfig)
     {
-        _authOptions = authOptions;
+        _authConfig = authConfig;
     }
 
     public string GenerateAccessToken(User user)
@@ -28,13 +27,13 @@ public class AuthService
             new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // Issued at
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authOptions.Secret));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authConfig.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expires = DateTime.UtcNow.AddMinutes(30); // Short-lived access token
 
         var token = new JwtSecurityToken(
-            issuer: _authOptions.Issuer,
-            audience: _authOptions.Audience,
+            issuer: _authConfig.Issuer,
+            audience: _authConfig.Audience,
             claims: claims,
             expires: expires,
             signingCredentials: creds
@@ -53,7 +52,7 @@ public class AuthService
 
     public DateTime GetRefreshTokenExpiration()
     {
-        return DateTime.UtcNow.AddHours(_authOptions.ExpirationHours);
+        return DateTime.UtcNow.AddHours(_authConfig.ExpirationHours);
     }
 
     public static string GenerateSecureKey()

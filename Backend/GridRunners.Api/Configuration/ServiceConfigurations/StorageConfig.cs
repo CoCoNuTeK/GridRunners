@@ -1,7 +1,8 @@
 using GridRunners.Core.Data;
 using GridRunners.Api.Services;
 using Microsoft.EntityFrameworkCore;
-using GridRunners.Api.Configuration;
+using GridRunners.Api.Configuration.Bind;
+using GridRunners.Api.Configuration.Runtime;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using Azure.Storage.Blobs;
@@ -16,35 +17,41 @@ public static class StorageConfig
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-        // Configure Azure Storage 
-        var azureStorageSection = configuration.GetSection(AzureStorageOptions.SectionName);
-        services.Configure<AzureStorageOptions>(azureStorageSection);
-        var azureStorageOptions = azureStorageSection.Get<AzureStorageOptions>()!;
-        services.AddSingleton(azureStorageOptions);
+        // Bind configuration sections directly to options objects
+        var azureStorageOptions = new AzureStorageOptions();
+        configuration.GetSection(AzureStorageOptions.ConfigSection).Bind(azureStorageOptions);
+        
+        var keyVaultOptions = new KeyVaultOptions();
+        configuration.GetSection(KeyVaultOptions.ConfigSection).Bind(keyVaultOptions);
+        
+        // Create runtime configurations
+        var runtimeStorageConfig = new RuntimeStorageConfig(azureStorageOptions);
+        var runtimeKeyVaultConfig = new RuntimeKeyVaultConfig(keyVaultOptions);
+        
+        // Register runtime configurations with DI
+        services.AddSingleton(runtimeStorageConfig);
+        services.AddSingleton(runtimeKeyVaultConfig);
 
         // Create DefaultAzureCredential (used for both Key Vault and Blob Storage)
         var credential = new DefaultAzureCredential();
         
         // Create and register BlobServiceClient
         var blobServiceClient = new BlobServiceClient(
-            new Uri($"https://{azureStorageOptions.AccountName}.blob.core.windows.net"),
+            new Uri(runtimeStorageConfig.BlobUri),
             credential);
         services.AddSingleton(blobServiceClient);
-        Console.WriteLine($"Added BlobServiceClient for storage account {azureStorageOptions.AccountName}");
+        Console.WriteLine($"Added BlobServiceClient for storage account {runtimeStorageConfig.AccountName}");
 
         // Add Azure Blob Storage service
         services.AddSingleton<BlobStorageService>();
         
-        // Configure Key Vault
-        services.Configure<KeyVaultOptions>(configuration.GetSection(KeyVaultOptions.SectionName));
-        var keyVaultOptions = configuration.GetSection(KeyVaultOptions.SectionName).Get<KeyVaultOptions>();
-        
-        if (keyVaultOptions != null && !string.IsNullOrEmpty(keyVaultOptions.Url))
+        // Configure Key Vault client
+        if (!string.IsNullOrEmpty(runtimeKeyVaultConfig.Url))
         {
             // Use the same credential instance for Key Vault
-            var secretClient = new SecretClient(new Uri(keyVaultOptions.Url), credential);
+            var secretClient = new SecretClient(new Uri(runtimeKeyVaultConfig.Url), credential);
             services.AddSingleton(secretClient);
-            Console.WriteLine($"Added SecretClient for KeyVault at {keyVaultOptions.Url}");
+            Console.WriteLine($"Added SecretClient for KeyVault at {runtimeKeyVaultConfig.Url}");
         }
         else
         {

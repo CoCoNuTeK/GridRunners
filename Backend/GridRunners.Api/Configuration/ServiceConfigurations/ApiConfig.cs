@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using GridRunners.Api.Services;
+using GridRunners.Api.Configuration.Runtime;
 
 namespace GridRunners.Api.Configuration.ServiceConfigurations;
 
@@ -45,22 +46,33 @@ public static class ApiConfig
         app.UseAuthentication();
         app.UseAuthorization();
 
-        // Configure CORS using settings from configuration
-        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
-        if (allowedOrigins?.Length > 0)
+        // Get the CORS options from DI
+        var corsConfig = app.ApplicationServices.GetRequiredService<RuntimeCorsConfig>();
+        
+        if (corsConfig.AllowedOrigins?.Length > 0)
         {
-            app.UseCors(builder => builder
-                .WithOrigins(allowedOrigins)
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials());
+            app.UseCors(builder => 
+            {
+                var corsBuilder = builder
+                    .WithOrigins(corsConfig.AllowedOrigins)
+                    .WithMethods(corsConfig.AllowedMethods)
+                    .WithHeaders(corsConfig.AllowedHeaders);
+                
+                if (corsConfig.AllowCredentials)
+                {
+                    corsBuilder.AllowCredentials();
+                }
+                else
+                {
+                    corsBuilder.DisallowCredentials();
+                }
+            });
         }
         else
         {
             throw new InvalidOperationException(
                 "CORS configuration is missing. Please ensure 'Cors:AllowedOrigins' is configured " +
-                "either in appsettings.Development.json for local development " +
-                "or as environment variables (Cors__AllowedOrigins__0, Cors__AllowedOrigins__1, etc.) for production."
+                "in appsettings.json or as environment variables."
             );
         }
 

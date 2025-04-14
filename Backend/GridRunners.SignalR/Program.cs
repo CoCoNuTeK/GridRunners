@@ -18,9 +18,14 @@ builder.Services.AddCors();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Configure Key Vault
-var keyVaultOptions = builder.Configuration.GetSection(KeyVaultOptions.SectionName).Get<KeyVaultOptions>()
-    ?? throw new InvalidOperationException("Key Vault URL is not configured. Check your appsettings files.");
+// Bind configuration sections directly to options objects
+var keyVaultOptions = new KeyVaultOptions();
+builder.Configuration.GetSection(KeyVaultOptions.SectionName).Bind(keyVaultOptions);
+
+if (string.IsNullOrEmpty(keyVaultOptions.Url))
+{
+    throw new InvalidOperationException("Key Vault URL is not configured. Check your appsettings files.");
+}
 
 // Create DefaultAzureCredential
 var credential = new DefaultAzureCredential();
@@ -28,19 +33,17 @@ var secretClient = new SecretClient(new Uri(keyVaultOptions.Url), credential);
 builder.Services.AddSingleton(secretClient);
 Console.WriteLine($"Added SecretClient for KeyVault at {keyVaultOptions.Url}");
 
-// Configure Authentication
-var authSection = builder.Configuration.GetSection(AuthOptions.SectionName);
-var authOptions = authSection.Get<AuthOptions>()!;
+// Bind Authentication options
+var authOptions = new AuthOptions();
+builder.Configuration.GetSection(AuthOptions.SectionName).Bind(authOptions);
 
 // Get JWT secret from KeyVault
 string jwtSecret;
 try
 {
-    var secretName = authOptions.SecretKeyName;
-    if (string.IsNullOrEmpty(secretName))
-    {
-        secretName = "jwt-secret-key";
-    }
+    var secretName = string.IsNullOrEmpty(authOptions.SecretKeyName) 
+        ? "jwt-secret-key" 
+        : authOptions.SecretKeyName;
     
     jwtSecret = secretClient.GetSecret(secretName).Value.Value;
     Console.WriteLine($"Retrieved JWT secret from Key Vault with key: {secretName}");
@@ -51,9 +54,9 @@ catch (Exception ex)
     throw new InvalidOperationException($"Failed to retrieve JWT Secret key from Key Vault: {ex.Message}");
 }
 
-// Set the secret in the auth options
-authOptions = authOptions with { Secret = jwtSecret };
-builder.Services.AddSingleton(authOptions);
+// Create runtime auth configuration with the secret
+var runtimeAuthConfig = new RuntimeAuthConfig(authOptions, jwtSecret);
+builder.Services.AddSingleton(runtimeAuthConfig);
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -68,9 +71,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = authOptions.Issuer,
-        ValidAudience = authOptions.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.Secret))
+        ValidIssuer = runtimeAuthConfig.Issuer,
+        ValidAudience = runtimeAuthConfig.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(runtimeAuthConfig.Secret))
     };
 
     // Configure for SignalR
@@ -97,15 +100,22 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Configure CORS using settings from configuration
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? throw new InvalidOperationException("CORS configuration is missing. Please ensure 'Cors:AllowedOrigins' is configured.");
+// Bind CORS options directly
+var corsOptions = new CorsOptions();
+builder.Configuration.GetSection(CorsOptions.SectionName).Bind(corsOptions);
 
-app.UseCors(builder => builder
-    .WithOrigins(allowedOrigins)
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .AllowCredentials());
+if (corsOptions.AllowedOrigins?.Length > 0)
+{
+    app.UseCors(builder => builder
+        .WithOrigins(corsOptions.AllowedOrigins)
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
+}
+else
+{
+    throw new InvalidOperationException("CORS configuration is missing. Please ensure 'Cors:AllowedOrigins' is configured.");
+}
 
 // Map hub
 app.MapHub<MazeGameHub>("/hubs/game");

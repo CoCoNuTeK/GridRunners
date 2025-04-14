@@ -1,6 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using GridRunners.Api.Configuration;
+using GridRunners.Api.Configuration.Runtime;
 using Microsoft.AspNetCore.Http;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -13,20 +13,20 @@ public class BlobStorageService
 {
     private const int MaxImageDimension = 1024;
     private readonly BlobServiceClient _blobServiceClient;
-    private readonly AzureStorageOptions _options;
+    private readonly RuntimeStorageConfig _config;
     private readonly ILogger<BlobStorageService> _logger;
 
     public BlobStorageService(
         BlobServiceClient blobServiceClient,
-        AzureStorageOptions options,
+        RuntimeStorageConfig config,
         ILogger<BlobStorageService> logger)
     {
         _blobServiceClient = blobServiceClient;
-        _options = options;
+        _config = config;
         _logger = logger;
         
         _logger.LogInformation("BlobStorageService initialized with storage account {AccountName}, container {ContainerName}",
-            options.AccountName, options.ContainerName);
+            config.AccountName, config.ContainerName);
     }
 
     public async Task<string> UploadUserImageAsync(int userId, IFormFile file)
@@ -34,12 +34,12 @@ public class BlobStorageService
         try
         {
             // Get container reference
-            var containerClient = _blobServiceClient.GetBlobContainerClient(_options.ContainerName);
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_config.ContainerName);
             
             // Check if container exists
             if (!await containerClient.ExistsAsync())
             {
-                _logger.LogInformation("Creating blob container {ContainerName}", _options.ContainerName);
+                _logger.LogInformation("Creating blob container {ContainerName}", _config.ContainerName);
                 await containerClient.CreateAsync();
             }
 
@@ -51,7 +51,7 @@ public class BlobStorageService
             }
 
             // Generate unique blob name
-            var blobName = $"{_options.UserImagesPath}/{userId}/{Guid.NewGuid()}{extension}";
+            var blobName = $"{_config.UserImagesPath}/{userId}/{Guid.NewGuid()}{extension}";
             var blobClient = containerClient.GetBlobClient(blobName);
 
             // Process and upload the image
@@ -96,7 +96,7 @@ public class BlobStorageService
             if (string.IsNullOrEmpty(imageUrl)) return;
 
             var uri = new Uri(imageUrl);
-            var containerClient = _blobServiceClient.GetBlobContainerClient(_options.ContainerName);
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_config.ContainerName);
             
             // Extract blob name from the full URL (remove query parameters first)
             var blobPath = uri.GetLeftPart(UriPartial.Path);
