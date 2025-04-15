@@ -2,7 +2,6 @@ using System.Text;
 using GridRunners.Api.Configuration.Bind;
 using GridRunners.Api.Configuration.Runtime;
 using GridRunners.Core.Data;
-using GridRunners.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;

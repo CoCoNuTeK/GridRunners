@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Dynamic;
 using Microsoft.CSharp.RuntimeBinder;
 using System.Text.Json;
+using GridRunners.Core.Services;
 
 namespace GridRunners.Core.Models;
 
@@ -111,19 +112,147 @@ public class MazeGame
     }
 
     // Game state management methods
-    public void StartGame()
+    public async Task StartGameAsync(object? openAIConfig = null, IMazeGenerationService? mazeGenerationService = null)
     {
-        if (State == GameState.Lobby && Players.Count >= 2)
+        if (Players.Count >= 2)
         {
-            Console.WriteLine("Starting new game - generating maze and initializing state");
-            GenerateMaze();
+            Console.WriteLine("Starting new game - initializing state");
+            
+            // Determine whether to use OpenAI for maze generation
+            bool useOpenAI = openAIConfig != null && GetEnabledProperty(openAIConfig) && mazeGenerationService != null;
+            
+            if (useOpenAI)
+            {
+                // Use async method with await
+                bool success = await GenerateMazeWithAIAsync(mazeGenerationService!, Players.Count);
+                
+                if (success) // If AI maze generation succeeded
+                {
+                    Console.WriteLine("Successfully generated maze using OpenAI service");
+                }
+                else // Fallback to local generation
+                {
+                    Console.WriteLine("OpenAI service failed to generate maze, falling back to local generation");
+                    GenerateMaze();
+                    PlacePlayersAtStart();
+                }
+            }
+            else
+            {
+                // Use local generation
+                Console.WriteLine("Using local maze generation");
+                GenerateMaze();
+                PlacePlayersAtStart();
+            }
+            
             AssignPlayerColors();
-            PlacePlayersAtStart();
             InitPlayerConnections();
             StartedAt = DateTime.UtcNow;
             State = GameState.InGame;
             Console.WriteLine($"Game initialized with {Players.Count} players");
         }
+    }
+    
+    // Method to set game state to InGame immediately to prevent multiple concurrent game starts
+    public void SetToInGameState()
+    {
+        if (State == GameState.Lobby)
+        {
+            State = GameState.InGame;
+            StartedAt = DateTime.UtcNow;
+            Console.WriteLine($"Game state changed to InGame to prevent concurrent starts");
+        }
+    }
+    
+    // Keep the old method for backward compatibility
+    public void StartGame(object? openAIConfig = null, IMazeGenerationService? mazeGenerationService = null)
+    {
+        // Just call the async version and wait for it
+        var task = StartGameAsync(openAIConfig, mazeGenerationService);
+        task.Wait();
+    }
+    
+    // Helper method to get the Enabled property from the config object regardless of its type
+    private bool GetEnabledProperty(object config)
+    {
+        try
+        {
+            // Try to get the Enabled property using reflection
+            var property = config.GetType().GetProperty("Enabled");
+            if (property != null)
+            {
+                return (bool)property.GetValue(config, null)!;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
+    private async Task<bool> GenerateMazeWithAIAsync(IMazeGenerationService mazeGenerationService, int playerCount)
+    {
+        try
+        {
+            // Generate maze and player positions
+            var gridWithPlayers = await mazeGenerationService.GenerateCompleteGridAsync(Width, Height, playerCount);
+            
+            if (gridWithPlayers == null)
+            {
+                Console.WriteLine("OpenAI service failed to generate a valid maze");
+                return false;
+            }
+            
+            // Set the grid
+            Grid = gridWithPlayers;
+            
+            // Extract player positions from grid
+            ExtractPlayerPositionsFromGrid();
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error using OpenAI service: {ex.Message}");
+            return false;
+        }
+    }
+    
+    private void ExtractPlayerPositionsFromGrid()
+    {
+        if (Grid == null) return;
+        
+        // Clear existing positions
+        PlayerPositions.Clear();
+        
+        // Get ordered list of players
+        var playerList = Players.OrderBy(p => p.Id).ToList();
+        var playerPositions = new List<(int X, int Y)>();
+        
+        // Find all cells marked as player positions (value 3)
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                if ((int)Grid[y, x] == 3) // Player position
+                {
+                    playerPositions.Add((x, y));
+                    // Reset to Free in the grid (players shouldn't be part of the grid)
+                    Grid[y, x] = CellType.Free;
+                }
+            }
+        }
+        
+        // Assign positions to players
+        for (int i = 0; i < Math.Min(playerList.Count, playerPositions.Count); i++)
+        {
+            var player = playerList[i];
+            var (x, y) = playerPositions[i];
+            PlayerPositions[player.Id] = new { X = x, Y = y };
+        }
+        
+        Console.WriteLine($"Extracted {playerPositions.Count} player positions from grid");
     }
 
     private void InitPlayerConnections()

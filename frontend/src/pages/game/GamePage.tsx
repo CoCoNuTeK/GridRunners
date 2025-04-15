@@ -17,6 +17,10 @@ const GamePage: React.FC = () => {
     const [disconnectedPlayers, setDisconnectedPlayers] = React.useState<Set<number>>(new Set());
     const currentPositionRef = React.useRef<{x: number, y: number} | null>(null);
     const movementBlockedRef = React.useRef<boolean>(false);
+    
+    // Touch handling refs
+    const touchStartRef = React.useRef<{x: number, y: number} | null>(null);
+    const gameBoardRef = React.useRef<HTMLDivElement>(null);
 
     // Get player ID using useMemo to ensure it only runs once per mount
     const playerId = React.useMemo(() => {
@@ -27,6 +31,72 @@ const GamePage: React.FC = () => {
     React.useEffect(() => {
         gameRef.current = game;
     }, [game]);
+
+    // Function to handle player movement - extracted for reuse between keyboard and touch
+    const handleMove = (direction: 'up' | 'down' | 'left' | 'right') => {
+        // Exit if game not loaded, user ID not set, movement is blocked
+        if (!gameRef.current || !playerId || !currentPositionRef.current) return;
+        
+        // Prevent movement if winner is set
+        if (winner) return;
+        
+        // Block rapid movement - wait for server confirmation
+        if (movementBlockedRef.current) return;
+
+        const currentPos = currentPositionRef.current;
+        let newX = currentPos.x;
+        let newY = currentPos.y;
+
+        switch (direction) {
+            case 'up':
+                newY--;
+                break;
+            case 'down':
+                newY++;
+                break;
+            case 'left':
+                newX--;
+                break;
+            case 'right':
+                newX++;
+                break;
+        }
+
+        // Validate move before sending
+        if (newX === currentPos.x && newY === currentPos.y) return;
+
+        const dx = Math.abs(newX - currentPos.x);
+        const dy = Math.abs(newY - currentPos.y);
+        if (dx + dy !== 1) return;
+
+        if (newX < 0 || newX >= gameRef.current.width || 
+            newY < 0 || newY >= gameRef.current.height) return;
+
+        if (gameRef.current.grid[newY][newX] === CellType.Wall) return;
+
+        const isOccupied = Object.entries(gameRef.current.playerPositions)
+            .some(([_, pos]) => pos.x === newX && pos.y === newY);
+        if (isOccupied) return;
+
+        // Block movement BEFORE sending the request
+        movementBlockedRef.current = true;
+
+        // Send move to server
+        signalRService.movePlayer(
+            gameRef.current.id, 
+            newX, 
+            newY,
+            currentPos.x,
+            currentPos.y,
+            gameRef.current.grid,
+            gameRef.current.playerPositions
+        )
+            .catch(error => {
+                // Only log critical errors
+                console.error('[GamePage] Failed to move player - Connection error');
+                movementBlockedRef.current = false;
+            });
+    };
 
     // Set up event handlers and initial game state on mount
     React.useEffect(() => {
@@ -105,74 +175,26 @@ const GamePage: React.FC = () => {
             // Ignore key repeats
             if (e.repeat) return;
             
-            // Exit if game not loaded, user ID not set, movement is blocked
-            if (!gameRef.current || !playerId || !currentPositionRef.current) return;
-            
-            // Prevent movement if winner is set
-            if (winner) return;
-            
-            // Block rapid movement - wait for server confirmation
-            if (movementBlockedRef.current) return;
-
-            const currentPos = currentPositionRef.current;
-            let newX = currentPos.x;
-            let newY = currentPos.y;
-
             switch (e.key) {
                 case 'ArrowUp':
                 case 'w':
-                    newY--;
+                    handleMove('up');
                     break;
                 case 'ArrowDown':
                 case 's':
-                    newY++;
+                    handleMove('down');
                     break;
                 case 'ArrowLeft':
                 case 'a':
-                    newX--;
+                    handleMove('left');
                     break;
                 case 'ArrowRight':
                 case 'd':
-                    newX++;
+                    handleMove('right');
                     break;
                 default:
                     return;
             }
-
-            // Validate move before sending
-            if (newX === currentPos.x && newY === currentPos.y) return;
-
-            const dx = Math.abs(newX - currentPos.x);
-            const dy = Math.abs(newY - currentPos.y);
-            if (dx + dy !== 1) return;
-
-            if (newX < 0 || newX >= gameRef.current.width || 
-                newY < 0 || newY >= gameRef.current.height) return;
-
-            if (gameRef.current.grid[newY][newX] === CellType.Wall) return;
-
-            const isOccupied = Object.entries(gameRef.current.playerPositions)
-                .some(([_, pos]) => pos.x === newX && pos.y === newY);
-            if (isOccupied) return;
-
-            // Block movement BEFORE sending the request
-            movementBlockedRef.current = true;
-
-            // Send move to server
-            signalRService.movePlayer(
-                gameRef.current.id, 
-                newX, 
-                newY,
-                currentPos.x,
-                currentPos.y,
-                gameRef.current.grid,
-                gameRef.current.playerPositions
-            )
-                .catch(error => {
-                    // Only log critical errors
-                    console.error('[GamePage] Failed to move player - Connection error');
-                    movementBlockedRef.current = false;
-                });
         };
 
         // Set up event handlers
@@ -195,11 +217,67 @@ const GamePage: React.FC = () => {
             // Reset all refs
             movementBlockedRef.current = false;
             currentPositionRef.current = null;
+            touchStartRef.current = null;
             
             // Restore scrolling when component unmounts
             document.body.style.overflow = '';
         };
     }, [location.state.game, playerId, winner]);
+
+    // Touch event handlers
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+
+        const touch = e.changedTouches[0];
+        const endX = touch.clientX;
+        const endY = touch.clientY;
+        
+        const startX = touchStartRef.current.x;
+        const startY = touchStartRef.current.y;
+        
+        // Calculate distance and direction
+        const dx = endX - startX;
+        const dy = endY - startY;
+        
+        // Minimum swipe distance (in pixels)
+        const minSwipeDistance = 30;
+        
+        // Reset touch start position
+        touchStartRef.current = null;
+        
+        // Determine the direction of the swipe
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal swipe
+            if (Math.abs(dx) < minSwipeDistance) return; // Too short, ignore
+            
+            if (dx > 0) {
+                handleMove('right');
+            } else {
+                handleMove('left');
+            }
+        } else {
+            // Vertical swipe
+            if (Math.abs(dy) < minSwipeDistance) return; // Too short, ignore
+            
+            if (dy > 0) {
+                handleMove('down');
+            } else {
+                handleMove('up');
+            }
+        }
+    };
+
+    // Prevent default touchmove to avoid scrolling while swiping
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (touchStartRef.current) {
+            e.preventDefault();
+        }
+    };
 
     const getCellClass = (cell: number, x: number, y: number): string => {
         // Start with base cell class
@@ -293,7 +371,13 @@ const GamePage: React.FC = () => {
                     })}
                 </div>
 
-                <div className="game-board">
+                <div 
+                    className="game-board"
+                    ref={gameBoardRef}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchMove}
+                >
                     {game.grid.map((row, y) => (
                         <div key={y} className="row">
                             {row.map((cell, x) => (
@@ -304,6 +388,10 @@ const GamePage: React.FC = () => {
                             ))}
                         </div>
                     ))}
+                </div>
+
+                <div className="mobile-instructions">
+                    <p>Swipe to move your player</p>
                 </div>
             </div>
 

@@ -15,11 +15,28 @@ const GameLobbyPage: React.FC = () => {
     const [showRedirect, setShowRedirect] = React.useState(false);
     const [redirectMessage, setRedirectMessage] = React.useState('');
     const [redirectDestination, setRedirectDestination] = React.useState('');
+    const [isStarting, setIsStarting] = React.useState(false);
+
+    // Helper function to deduplicate players
+    const deduplicatePlayers = React.useCallback((players: any[]) => {
+        const uniquePlayerMap = new Map();
+        players.forEach(player => {
+            if (!uniquePlayerMap.has(player.id)) {
+                uniquePlayerMap.set(player.id, player);
+            }
+        });
+        return Array.from(uniquePlayerMap.values());
+    }, []);
 
     React.useEffect(() => {
         const gameData = location.state?.game;
         if (gameData) {
-            setGame(gameData);
+            // Deduplicate players in the initial game data
+            const uniquePlayers = deduplicatePlayers(gameData.players);
+            setGame({
+                ...gameData,
+                players: uniquePlayers
+            });
             
             // Initialize SignalR connection
             const initializeSignalR = async () => {
@@ -31,17 +48,20 @@ const GameLobbyPage: React.FC = () => {
                     signalRService.on('PlayerJoined', (data) => {
                         setGame(prevGame => {
                             if (!prevGame) return prevGame;
-                            // Check if player is already in the list
-                            if (prevGame.players.some(p => p.id === data.playerId)) {
-                                return prevGame;
-                            }
+                            
+                            // Create a new player object
+                            const newPlayer = { 
+                                id: data.playerId, 
+                                displayName: data.displayName,
+                                profileImageUrl: data.profileImageUrl
+                            };
+                            
+                            // Add to players array and deduplicate
+                            const updatedPlayers = deduplicatePlayers([...prevGame.players, newPlayer]);
+                            
                             return {
                                 ...prevGame,
-                                players: [...prevGame.players, { 
-                                    id: data.playerId, 
-                                    displayName: data.displayName,
-                                    profileImageUrl: data.profileImageUrl
-                                }]
+                                players: updatedPlayers
                             };
                         });
                     });
@@ -60,11 +80,15 @@ const GameLobbyPage: React.FC = () => {
                         // Store the game state and redirect
                         setGame(prevGame => {
                             if (!prevGame) return prevGame;
+                            
+                            // Deduplicate the players from the server response
+                            const uniquePlayers = deduplicatePlayers(data.players);
+                            
                             return {
                                 ...prevGame,
                                 grid: data.grid,
                                 playerPositions: data.playerPositions,
-                                players: data.players,
+                                players: uniquePlayers,
                                 playerColors: data.playerColors,
                                 width: data.width,
                                 height: data.height
@@ -107,9 +131,13 @@ const GameLobbyPage: React.FC = () => {
     }, [location.state]);
 
     const handleStartGame = React.useCallback(async () => {
-        if (!game) return;
+        if (!game || isStarting) return;
+        
+        setIsStarting(true);
         try {
             await signalRService.startGame(game.id);
+            // Don't reset isStarting as we want the button to remain disabled
+            // The GameStarted event will trigger a redirect
         } catch (error) {
             console.error('Failed to start game:', error);
             
@@ -127,8 +155,13 @@ const GameLobbyPage: React.FC = () => {
                 console.error('Failed to delete game after failed start:', deleteError);
                 setError('Failed to start game. Please try again or leave the game.');
             }
+            
+            // Only reset isStarting if there was an error and we didn't redirect
+            if (!showRedirect) {
+                setIsStarting(false);
+            }
         }
-    }, [game]);
+    }, [game, isStarting, showRedirect]);
 
     const handleLeaveGame = React.useCallback(async () => {
         if (!game) return;
@@ -213,10 +246,10 @@ const GameLobbyPage: React.FC = () => {
                     <div className="lobby-actions">
                         <button
                             onClick={handleStartGame}
-                            disabled={game.players.length < 2}
+                            disabled={game.players.length < 2 || isStarting}
                             className="start-game-button"
                         >
-                            Start Game
+                            {isStarting ? 'Starting...' : 'Start Game'}
                         </button>
                     </div>
                 </div>

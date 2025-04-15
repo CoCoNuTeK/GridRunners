@@ -118,6 +118,11 @@
     padding: 1rem;
     border-radius: 8px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    max-width: 100%;
+    overflow: auto;
 }
 
 .row {
@@ -314,4 +319,51 @@
 @keyframes slideUp {
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
+}
+
+.mobile-instructions {
+    margin-top: 1rem;
+    text-align: center;
+    font-family: var(--font-pixel);
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    
+    p {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    @media (min-width: 768px) {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    .game-page {
+        padding: 1rem;
+    }
+    
+    .game-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .cell {
+        width: 25px;
+        height: 25px;
+        margin: 1px;
+    }
+    
+    .player-info-bar {
+        gap: 0.8rem;
+        
+        .player-info {
+            padding: 0.4rem 0.8rem;
+            
+            .player-name {
+                font-size: 0.7rem;
+            }
+        }
+    }
 } 

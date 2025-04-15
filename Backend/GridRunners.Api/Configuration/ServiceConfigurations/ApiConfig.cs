@@ -54,9 +54,26 @@ public static class ApiConfig
             app.UseCors(builder => 
             {
                 var corsBuilder = builder
-                    .WithOrigins(corsConfig.AllowedOrigins)
-                    .WithMethods(corsConfig.AllowedMethods)
-                    .WithHeaders(corsConfig.AllowedHeaders);
+                    .WithOrigins(corsConfig.AllowedOrigins);
+                
+                // Only call WithMethods and WithHeaders if the arrays are not null
+                if (corsConfig.AllowedMethods?.Length > 0)
+                {
+                    corsBuilder.WithMethods(corsConfig.AllowedMethods);
+                }
+                else
+                {
+                    corsBuilder.WithMethods("GET", "POST", "PUT", "DELETE");
+                }
+                
+                if (corsConfig.AllowedHeaders?.Length > 0)
+                {
+                    corsBuilder.WithHeaders(corsConfig.AllowedHeaders);
+                }
+                else
+                {
+                    corsBuilder.WithHeaders("Content-Type", "Authorization");
+                }
                 
                 if (corsConfig.AllowCredentials)
                 {

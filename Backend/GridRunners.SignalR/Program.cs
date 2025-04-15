@@ -7,6 +7,8 @@ using GridRunners.SignalR.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using GridRunners.SignalR.Services;
+using GridRunners.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +59,72 @@ catch (Exception ex)
 // Create runtime auth configuration with the secret
 var runtimeAuthConfig = new RuntimeAuthConfig(authOptions, jwtSecret);
 builder.Services.AddSingleton(runtimeAuthConfig);
+
+// Configure OpenAI services
+var openAIOptions = new OpenAIOptions();
+builder.Configuration.GetSection(OpenAIOptions.ConfigSection).Bind(openAIOptions);
+
+if (openAIOptions.Enabled)
+{
+    try
+    {
+        // Get secrets from Key Vault
+        var modelId = secretClient.GetSecret(openAIOptions.ModelIdKeyName).Value.Value;
+        var apiKey = secretClient.GetSecret(openAIOptions.ApiKeyName).Value.Value;
+        var organizationId = secretClient.GetSecret(openAIOptions.OrganizationIdKeyName).Value.Value;
+        var projectId = secretClient.GetSecret(openAIOptions.ProjectIdKeyName).Value.Value;
+        var endpointUrl = secretClient.GetSecret(openAIOptions.EndpointUrlKeyName).Value.Value;
+        
+        // Create runtime config
+        var runtimeOpenAIConfig = new RuntimeOpenAIConfig(
+            openAIOptions,
+            modelId,
+            apiKey,
+            organizationId,
+            projectId,
+            endpointUrl
+        );
+        
+        // Register with DI
+        builder.Services.AddSingleton(runtimeOpenAIConfig);
+        Console.WriteLine("Successfully loaded OpenAI configuration from KeyVault");
+        
+        // Register HttpClient and OpenAI service for maze generation
+        builder.Services.AddHttpClient<OpenAIService>();
+        builder.Services.AddScoped<OpenAIService>();
+        builder.Services.AddScoped<IMazeGenerationService, OpenAIService>();
+    }
+    catch (Exception ex)
+    {
+        // Log the error but don't fail startup - service will be disabled
+        Console.WriteLine($"Error loading OpenAI configuration from KeyVault: {ex.Message}");
+        
+        // Register a disabled configuration
+        var disabledConfig = new RuntimeOpenAIConfig(
+            new OpenAIOptions { Enabled = false },
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            string.Empty
+        );
+        builder.Services.AddSingleton(disabledConfig);
+    }
+}
+else
+{
+    // Register a disabled configuration
+    var disabledConfig = new RuntimeOpenAIConfig(
+        openAIOptions,
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        string.Empty
+    );
+    builder.Services.AddSingleton(disabledConfig);
+    Console.WriteLine("OpenAI integration is disabled by configuration");
+}
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>

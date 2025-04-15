@@ -4,6 +4,9 @@ using GridRunners.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using static GridRunners.Core.Models.MazeGame;
+using GridRunners.SignalR.Configuration;
+using GridRunners.SignalR.Services;
+using GridRunners.Core.Services;
 
 namespace GridRunners.SignalR.Hubs;
 
@@ -11,11 +14,19 @@ public class MazeGameHub : Hub
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<MazeGameHub> _logger;
+    private readonly RuntimeOpenAIConfig? _openAIConfig;
+    private readonly IMazeGenerationService? _mazeGenerationService;
 
-    public MazeGameHub(ApplicationDbContext context, ILogger<MazeGameHub> logger)
+    public MazeGameHub(
+        ApplicationDbContext context, 
+        ILogger<MazeGameHub> logger,
+        RuntimeOpenAIConfig? openAIConfig = null,
+        OpenAIService? openAIService = null)
     {
         _context = context;
         _logger = logger;
+        _openAIConfig = openAIConfig;
+        _mazeGenerationService = openAIService;
     }
 
     public override async Task OnConnectedAsync()
@@ -237,12 +248,16 @@ public class MazeGameHub : Hub
         if (game == null || game.State != GameState.Lobby || !game.Players.Any(p => p.Id == userId))
         {
             // Send error back to caller
-            await Clients.Caller.SendAsync("GameError", "Cannot start game");
+            await Clients.Caller.SendAsync("GameError", "Someone else already started the game. Hold on tight!");
             return;
         }
 
-        // Initialize the game (generates maze and places players)
-        game.StartGame();
+        // Immediately set game state to InGame to prevent concurrent starts
+        game.SetToInGameState();
+        await _context.SaveChangesAsync();
+        
+        // Initialize the game (generates maze and places players) - passing OpenAI services
+        await game.StartGameAsync(_openAIConfig, _mazeGenerationService);
         await _context.SaveChangesAsync();
 
         if (game.Grid == null)

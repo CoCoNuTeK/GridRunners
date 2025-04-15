@@ -5,7 +5,7 @@ import { API_BASE_URL } from './config';
 // Create axios instance for auth requests (no token interceptor)
 export const authAxiosInstance = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000,
+    timeout: 100000,
     headers: {
         'Content-Type': 'application/json'
     },
